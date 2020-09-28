@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 24 22:18:12 2020
+Created on Thu Sep 24 22:18:12 2020.
 
-@author: mthripp1
+@author: Michael Thrippleton
+
+Test script to process VFA nii data using mrifit.t1 functions
 """
 
 import os
 import sys
-import time
 
 import numpy as np
 import nibabel as nib
@@ -35,8 +36,8 @@ signals[:,122:,:,:]=0.
 mask = (signals[...,0] > threshold).astype(int)
 
 # s0, t1 = t1.fit_vfa_2_point(signals, fa_rad, tr_s, idx=[0,-1], mask=mask) #2-point method (fast)
-# s0, t1 = t1.fit_vfa_linear(signals, fa_rad, tr_s, mask=mask) #linear method (medium)
-s0, t1 = t1.fit_vfa_nonlinear(signals, fa_rad, tr_s, mask=mask) #non-linear method (slow)
+s0, t1 = t1.fit_vfa_linear(signals, fa_rad, tr_s, mask=mask) #linear method (medium)
+# s0, t1 = t1.fit_vfa_nonlinear(signals, fa_rad, tr_s, mask=mask) #non-linear method (slow)
 
 #save output as nii images
 new_hdr = images[0].header.copy()

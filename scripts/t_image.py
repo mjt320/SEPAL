@@ -2,7 +2,9 @@
 """
 Created on Mon Aug 17 15:43:41 2020
 
-@author: mthripp1
+@author: Michael Thrippleton
+
+Test script for mrifit.t1 (work in progress)
 
 """
 

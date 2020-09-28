@@ -4,13 +4,12 @@ Created on Wed Jul  8 17:50:09 2020.
 
 @author: Michael Thrippleton
 
-Functions to fit MRI signal to obtain quantitative T1:
+Functions to fit MRI signal to obtain T1:
     fit_vfa_2_point: obtain T1 using analytical formula based on two images
     fit_vfa_linear: obtain T1 using linear regression
     fit_vfa_nonlinear: obtain T1 using non-linear least squares fit
 
 """
-
 from functools import wraps
 
 import numpy as np
@@ -20,6 +19,8 @@ from . import signal
 
 def apply_to_image(f):    
     """Decorate fitting functions to apply to multiple voxels/regions.
+    
+    Also applies a mask to avoid calculating invalid voxels.
     
     Parameters
     ----------
@@ -141,7 +142,8 @@ def fit_vfa_nonlinear(s,fa_rad,tr_s):
     -------
         t1_s: T1
         s0: signal corresponding to equilibrium magnetisation excited with 90
-            degree pulse       
+            degree pulse  
+    """
     p_linear = np.array(fit_vfa_linear(s, fa_rad, tr_s)) #linear fit to obtain initial guess
     
     p0 = p_linear if (~np.isnan(p_linear[0]) & ~np.isnan(p_linear[1])) else np.array([10.0*s[0], 1.0])
