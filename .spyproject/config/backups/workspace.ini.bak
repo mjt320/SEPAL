@@ -6,5 +6,5 @@ save_non_project_files = False
 
 [main]
 version = 0.2.0
-recent_files = ['mrifit\\signal.py', 'scripts\\t_image.py', 'scripts\\script_demo_vfa_phantom.py', 'mrifit\\t1.py']
+recent_files = ['scripts\\t_image.py', 'mrifit\\signal.py', 'mrifit\\t1.py', 'scripts\\vfa_phantom.py']
 

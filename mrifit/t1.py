@@ -56,12 +56,12 @@ def fit_vfa_2_point(s, fa_rad, tr_s, idx = (0,-1), mask=None):
     
     Parameters
     ----------
-        s: np array of signals. Can be >=1 dimensional but last dimensions should
-            correspond to acquisition with particular flip angle
+        s: np array of signals. Can be >=1 dimensional but last dimension indicates
+            which acquisition (i.e. flip angle) is referred to.
         fa_rad: 1-D np array of flip angles
         tr_s: TR
-        idx, optional: np array containing two indices, indicating acquisitions to use for
-            T1 calculation. Default is to use first and last.
+        idx, optional: tuple containing two indices, indicating acquisitions to use for
+            two-point T1 estimation. Default is to use first and last.
         mask, optional: np array corresponding to mask image. Nans are returned
             where mask value is 0. Default is to process all voxels.                                                              
        
