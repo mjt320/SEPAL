@@ -30,19 +30,19 @@ signals = np.stack( [img.get_fdata() for img in images], axis=3 ) #4D signal arr
 
 #zero all slices except one to make things faster
 signals[:,0:120,:,:]=0.
-signals[:,122:,:,:]=0.
+signals[:,121:,:,:]=0.
 
 #create a mask based on threshold intensity
 mask = (signals[...,0] > threshold).astype(int)
 
 # s0, t1 = t1.fit_vfa_2_point(signals, fa_rad, tr_s, idx=[0,-1], mask=mask) #2-point method (fast)
-s0, t1 = t1.fit_vfa_linear(signals, fa_rad, tr_s, mask=mask) #linear method (medium)
-# s0, t1 = t1.fit_vfa_nonlinear(signals, fa_rad, tr_s, mask=mask) #non-linear method (slow)
+# s0, t1 = t1.fit_vfa_linear(signals, fa_rad, tr_s, mask=mask) #linear method (medium)
+s0, t1 = t1.fit_vfa_nonlinear(signals, fa_rad, tr_s, mask=mask) #non-linear method (slow)
 
 #save output as nii images
 new_hdr = images[0].header.copy()
 new_hdr.set_data_dtype(np.float32)
 t1_img = nib.nifti1.Nifti1Image(t1, None, header = new_hdr)
 s0_img = nib.nifti1.Nifti1Image(s0, None, header = new_hdr)
-nib.save(t1_img, "./results/t1_map.nii")
-nib.save(s0_img, "./results/s0_map.nii")
+nib.save(t1_img, "./results/t1_map_nl.nii")
+nib.save(s0_img, "./results/s0_map_nl.nii")
