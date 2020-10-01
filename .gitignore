@@ -1,3 +1,4 @@
 scripts/results
 *.pyc
 .spyproject/
+wip/
