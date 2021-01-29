@@ -6,7 +6,7 @@ Created on Fri Jan 29 09:49:37 2021
 """
 
 def c_to_r_linear(c, r_0, rlxy_pars):
-    #convert concentration to relaxation for a single compartment
+    #convert concentration to relaxation for a single compartment    
     r = {
         'r1': r_0['r1'] + rlxy_pars['r1']*c,
         'r2s': r_0['r2s'] + rlxy_pars['r2s']*c
