@@ -25,3 +25,14 @@ def irf_patlak(t, pk_pars):
 irfs = {
     'patlak': irf_patlak
 }
+
+def pkp_to_c(t, c_p_aif, pk_pars, hct, irf_model):
+    dt = t[1]-t[0] #need to generalise, add interpolation
+    n = t.size
+    h_cp, h_e = irfs[irf_model](t, pk_pars)
+    c_cp = dt * np.convolve(c_p_aif, h_cp, mode='full')[:n]
+    c_b = c_cp*(1-hct)
+    c_e  = dt * np.convolve(c_p_aif, h_e  , mode='full')[:n]
+    c_t = pk_pars['vp'] * c_cp + pk_pars['ve'] * c_e
+    c = {'b': c_b, 'e': c_e, 'i': np.zeros(n)}
+    return  c, c_t
