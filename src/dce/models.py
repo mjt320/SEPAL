@@ -2,80 +2,121 @@
 """
 Created on Sat Nov  7 21:05:18 2020
 
-@author: mthripp1
+@author: Michael Thrippleton
+
+PURPOSE: Module containin pharmacokinetic models.
+    Includes functions to generate total and compartmental CA concentrations.
+    Includes dictionary of all model functions, to allow switching between models.
 """
 
 import numpy as np
 from scipy.optimize import LinearConstraint
 
-req_pars = {'patlak': ('vp', 'ps', 've'), # (v_e required to determine local EES concentration)
+
+# Dictionary of parameters associated with each model (WIP)
+req_pars = {'patlak': ('vp', 'ps', 've'), # (v_e required to determine local EES concentration)         
             }
 
+
+# Dictionary of constraints for each model (WIP)
 pkp_constraints = {'patlak': LinearConstraint([[1., 0., 0., 0.],[1., 0., 1., 0.]], [0., 0.], [1., 1.])}
 
+
+#TODO: better to parametetrise this as delta t and n
 def irf_patlak(t, pk_pars):
-    dt = t[1]-t[0] #to do: generalise this
-    n = t.size
+    """
+    Get impulse response functions for the Patlak model.
+    
+    Parameters
+    ----------
+    t : 1D numpy float array
+        times (s) where IRF should be calculated
+    pk_pars : dict containing pharmacokinetic parameters
+        {'ps': <PS (min^-1),
+         'vp': <vP>,
+         've': <ve> }
+
+    Returns
+    -------
+    h_cp : 1D numpy array
+        IRF for capillary plasma compartment.
+    h_e : 1D numpy array
+        IRF for EES compartment.
+
+    """
+    dt = t[1]-t[0]
+    n = t.size   
+    
+    #calculate h_cp, i.e. delta function at time zero
     h_cp = np.zeros(n, dtype=float)
-    h_cp[0] = 1./dt
+    h_cp[0] = 1./dt    
+    #calculate h_e
     h_e = np.ones(n, dtype=float) * (1./60.) * ( pk_pars['ps'] / pk_pars['ve'] )
     h_e[0] = h_e[0]/2.
+    
     return h_cp, h_e
 
+
+# Dictinoary of IRF functions
 irfs = {
     'patlak': irf_patlak
 }
 
-def pkp_to_c(t, c_p_aif, pk_pars, hct, irf_model, options=None):
-#version without interpolation
-    dt = t[1]-t[0] #need to generalise, add interpolation
-    n = t.size
-    h_cp, h_e = irfs[irf_model](t, pk_pars)
-    c_cp = dt * np.convolve(c_p_aif, h_cp, mode='full')[:n]
-    c_e  = dt * np.convolve(c_p_aif, h_e  , mode='full')[:n]
-    c_b = c_cp*(1-hct)
-    c_t = pk_pars['vp'] * c_cp + pk_pars['ve'] * c_e
-    c = {'b': c_b, 'e': c_e, 'i': np.zeros(n)}
-    return  c, c_t
 
-def pkp_to_c_2(t, t_interp, c_p_aif_interp, pk_pars, hct, irf_model, options=None):
-#version with interpolation and conv
-    dt = t_interp[1]-t_interp[0]
-    n = t_interp.size
-    h_cp, h_e = irfs[irf_model](t_interp, pk_pars)
-    c_cp_interp = dt * np.convolve(c_p_aif_interp, h_cp, mode='full')[:n]
-    c_e_interp  = dt * np.convolve(c_p_aif_interp, h_e  , mode='full')[:n]
+def pkp_to_c(t, t_interp, c_p_aif_interp, pk_pars, hct, irf_model, options=None):
+    """
+    Calculate compartment and tissue concentrations.
     
+    Calculates concentrations by convolving the AIF with the IRF. Both are interpolated
+    to maximise accuracy but concentrations are returned at the measured time points.    
+
+    Parameters
+    ----------
+    t : 1D numpy array
+        Measured time points (s).
+    t_interp : 1D numpy array
+        Time points following interpolation.
+    c_p_aif_interp : 1D numpy array
+        AIF plasma concentration at interpolated time points.
+    pk_pars : dict
+        Dict containing pharmacokinetic parameters.
+    hct : float
+        Haematocrit.
+    irf_model : string
+        Pharmacokinetic model.
+    options : dict, optional
+        Not implemented.
+
+    Returns
+    -------
+    c : dict
+        Dict of compartment concentrations at measured time points.
+        Each value is a 1D numpy array:
+            {'b': <capillary blood concentration>,
+             'e': <EES concentration>,
+             'i': <intracellular concentration> }
+    c_t: 1D numpy array
+        Tissue concentration.
+
+    """    
+    n = t.size
+    n_interp = t_interp.size
+    dt_interp = t_interp[1]-t_interp[0]
+    
+    h_cp, h_e = irfs[irf_model](t_interp, pk_pars)
+
+    # Do the convolutions, taking only results in the required range    
+    c_cp_interp = dt_interp * np.convolve(c_p_aif_interp, h_cp, mode='full')[:n_interp]
+    c_e_interp  = dt_interp * np.convolve(c_p_aif_interp, h_e  , mode='full')[:n_interp]
+    
+    # Resample concentrations at the measured time points
     c_cp = np.interp(t, t_interp, c_cp_interp)
     c_e = np.interp(t, t_interp, c_e_interp)
+    
     c_b = c_cp*(1-hct)
     c_t = pk_pars['vp'] * c_cp + pk_pars['ve'] * c_e
     c = {'b': c_b, 'e': c_e, 'i': np.zeros(n)}
+    
     return  c, c_t
+
     
-def pkp_to_c_3(t, t_interp, c_p_aif_interp, pk_pars, hct, irf_model, options=None):
-#version with interpolation but no conv
-#unless time series is highly interpolated this is slower than using np.convolve
-#there is a loss of precision due to using the nearest interpolated time point
-    dt_interp = t_interp[1]-t_interp[0]
-    n_interp = t_interp.size
-    n = t.size
-    h_cp, h_e = irfs[irf_model](t_interp, pk_pars)
-    c_cp = np.zeros(n)
-    c_e= np.zeros(n)
-    for i in range(n): #loop through time points
-        i_interp = np.around(t[i]/dt_interp - 0.5).astype(int) #index of nearest interpolated time point - this is an approximation!
-        c_cp[i] = dt_interp * np.sum( c_p_aif_interp[:i_interp+1] * h_cp[i_interp::-1] )
-        c_e[i]  = dt_interp * np.sum( c_p_aif_interp[:i_interp+1] * h_e[i_interp::-1] )
-    c_b = c_cp*(1-hct)
-    c_t = pk_pars['vp'] * c_cp + pk_pars['ve'] * c_e
-    c = {'b': c_b, 'e': c_e, 'i': np.zeros(n)}
-    return  c, c_t 
-    
-def interpolate_time_series(dt_required, t):
-    #interpolate time series t to evenly spaced values from dt/2 to max(t)
-    max_t = np.max(t)
-    n_interp = np.round(max_t/dt_required + 0.5).astype(int)
-    dt_actual = max_t/(n_interp-0.5)
-    t_interp = np.linspace(0.5*dt_actual, max_t, num=n_interp)
-    return t_interp
