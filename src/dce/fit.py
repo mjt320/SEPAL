@@ -13,13 +13,16 @@ from . import models
 from .conc_to_r import c_to_r, c_to_r_single
 from .r_to_s import r_to_s, r_compartments_to_components, r_components_to_s
 
-
 # TO DO:
-# INTERPOLATE BEFORE CONVOLUTION
-# DEAL WITH FIT WARNINGS
+# INTERPOLATE BEFORE CONVOLUTION - use PKP_2_c version 2, plug in
 # TIDY
+# ADD MODELS
+# TESTING
 # CONSTRAINT AND MODEL FLEXIBILITY
+# DEAL WITH FIT WARNINGS
+# EXCEPTIONS
 # ADD MULTISTART
+
 def s_to_pkp(t, s, c_p_aif, r_0_tissue, r_0_blood, rlxy_pars, acq_pars, hct, irf_model, c_to_r_model, r_to_s_model, water_model='fxl', delta_t_interp=1.0, fit_opts=None):
     #interpolate time points and AIF
     # max_t = np.max(t)
