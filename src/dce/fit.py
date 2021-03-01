@@ -13,9 +13,8 @@ from . import models
 from .conc_to_r import c_to_r, c_to_r_single
 from .r_to_s import r_to_s, r_compartments_to_components, r_components_to_s
 
-# TO DO:
-# INTERPOLATE BEFORE CONVOLUTION - use PKP_2_c version 2, plug in
-# TIDY
+# TODO
+# TIDY, USE CLASSES
 # ADD MODELS
 # TESTING
 # CONSTRAINT AND MODEL FLEXIBILITY
@@ -63,7 +62,7 @@ def pkp_to_s(t, t_interp, c_p_aif_interp, pk_pars, s0, r_0_tissue, r_0_blood, rl
                          'i': r_0_extravasc }
     c_compartments, c_t = models.pkp_to_c(t, t_interp, c_p_aif_interp, pk_pars, hct, irf_model)   #dict of lists        
     r_compartments = c_to_r(c_compartments, r_0_compartments, c_to_r_model, rlxy_pars)
-    print(p_compartments)    
+    
     r_components, p_components = r_compartments_to_components[water_model](r_compartments, p_compartments)    
     s = r_components_to_s(s0, r_components, p_components, acq_pars, r_to_s_model)
     return s

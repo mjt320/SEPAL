@@ -19,18 +19,17 @@ req_pars = {'patlak': ('vp', 'ps', 've'), # (v_e required to determine local EES
 
 
 # Dictionary of constraints for each model (WIP)
-pkp_constraints = {'patlak': LinearConstraint([[1., 0., 0., 0.],[1., 0., 1., 0.]], [0., 0.], [1., 1.])}
+pkp_constraints = {'patlak': LinearConstraint([[1., 0., 0., 0.],[1., 0., 1., 0.]], [0., 0.], [1., 1.])     
+                   }
 
-
-#TODO: better to parametetrise this as delta t and n
-def irf_patlak(t, pk_pars):
+def irf_patlak(dt, n, pk_pars):
     """
     Get impulse response functions for the Patlak model.
     
     Parameters
     ----------
-    t : 1D numpy float array
-        times (s) where IRF should be calculated
+    dt : separation between time points (s)
+    n : number of time points
     pk_pars : dict containing pharmacokinetic parameters
         {'ps': <PS (min^-1),
          'vp': <vP>,
@@ -44,8 +43,6 @@ def irf_patlak(t, pk_pars):
         IRF for EES compartment.
 
     """
-    dt = t[1]-t[0]
-    n = t.size   
     
     #calculate h_cp, i.e. delta function at time zero
     h_cp = np.zeros(n, dtype=float)
@@ -103,7 +100,7 @@ def pkp_to_c(t, t_interp, c_p_aif_interp, pk_pars, hct, irf_model, options=None)
     n_interp = t_interp.size
     dt_interp = t_interp[1]-t_interp[0]
     
-    h_cp, h_e = irfs[irf_model](t_interp, pk_pars)
+    h_cp, h_e = irfs[irf_model](dt_interp, n_interp, pk_pars)
 
     # Do the convolutions, taking only results in the required range    
     c_cp_interp = dt_interp * np.convolve(c_p_aif_interp, h_cp, mode='full')[:n_interp]
