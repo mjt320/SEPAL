@@ -22,14 +22,6 @@ from .r_to_s import r_to_s, r_compartments_to_components, r_components_to_s
 # EXCEPTIONS
 # ADD MULTISTART
 
-def interpolate_time_series(dt_required, t):
-    #interpolate time series t to evenly spaced values from dt/2 to max(t)
-    max_t = np.max(t)
-    n_interp = np.round(max_t/dt_required + 0.5).astype(int)
-    dt_actual = max_t/(n_interp-0.5)
-    t_interp = np.linspace(0.5*dt_actual, max_t, num=n_interp)
-    return t_interp
-
 class expt:
     def __init__(self, t, acq_pars, r_to_s_model):
         self.t = t
@@ -58,17 +50,13 @@ class data:
 
 def s_to_pkp(expt, data, proc):
 
-    #interpolate time points and AIF
-    t_interp=interpolate_time_series(proc.delta_t_interp, expt.t)
-
-    #interpolate AIF
-    f=interp1d(expt.t, data.c_p_aif, kind='quadratic', bounds_error=False, fill_value=data.c_p_aif[0])
-    c_p_aif_interp=f(t_interp)
 
     # estimate s0, scale parameters
     s0_0 = data.s[0] / r_to_s[expt.r_to_s_model](expt.acq_pars, 1., data.r_0_tissue)
     x_0 = pkp_to_x(proc.fit_opts['pk_pars_0'], s0_0, proc.irf_model) 
-    x_sf= x_0 # use initial values to scale variables    
+
+    # use initial values to scale variables    
+    x_sf= x_0 
     x_lb_norm = pkp_to_x(proc.fit_opts['pk_pars_lb'], s0_0*0.5, proc.irf_model) / x_sf
     x_ub_norm = pkp_to_x(proc.fit_opts['pk_pars_ub'], s0_0*1.5, proc.irf_model) / x_sf
     x_0_norm = x_0/x_sf    
@@ -143,11 +131,5 @@ def x_to_pkp(x, irf_model):
     return pk_pars, s0
 
 
-def interpolate_time_series(dt_required, t):
-    #interpolate time series t to evenly spaced values from dt/2 to max(t)
-    max_t = np.max(t)
-    n_interp = np.round(max_t/dt_required + 0.5).astype(int)
-    dt_actual = max_t/(n_interp-0.5)
-    t_interp = np.linspace(0.5*dt_actual, max_t, num=n_interp)
-    return t_interp
+
 
