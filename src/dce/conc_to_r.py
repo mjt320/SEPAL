@@ -25,3 +25,26 @@ def c_to_r(c, r_0, c_to_r_model, rlxy_pars):
          for (compartment, conc) in c.items() }
     return r
 
+class c_to_r_model:
+    
+    def __init__(self, r_0, rlxy):
+        self.r_0 = r_0
+        self.rlxy = rlxy
+        
+    def r(self, c):
+        r = { compartment: self.r_single(c, self.r_0[compartment], self.rlxy_pars)
+            for (compartment, c) in c.items() }
+    
+    def r_single(self, c):
+        pass
+
+
+class c_to_r_linear(c_to_r_model):
+    
+    def r(self, c):
+        r = {
+            'r1': self.r_0['r1'] + self.rlxy['r1'] * c,
+            'r2s': self.r_0['r2s'] + self.rlxy['r2s'] * c
+            }        
+        
+        return r
