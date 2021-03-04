@@ -48,54 +48,72 @@ class data:
         self.hct = hct
 
 
-def s_to_pkp(expt, data, proc):
+def s_to_pkp(s, acq_pars, proc):
 
 
     # estimate s0, scale parameters
-    s0_0 = data.s[0] / r_to_s[expt.r_to_s_model](expt.acq_pars, 1., data.r_0_tissue)
-    x_0 = pkp_to_x(proc.fit_opts['pk_pars_0'], s0_0, proc.irf_model) 
+    s0_0 = data.s[0] / r_to_s[proc.r_to_s_model](acq_pars, 1., data.r_0_tissue)
+    
+    x_0 = np.array( [ s0_0, *proc.pk_model.split_pk_pars(proc.pk_pars[0]) ] )
 
     # use initial values to scale variables    
     x_sf= x_0 
-    x_lb_norm = pkp_to_x(proc.fit_opts['pk_pars_lb'], s0_0*0.5, proc.irf_model) / x_sf
-    x_ub_norm = pkp_to_x(proc.fit_opts['pk_pars_ub'], s0_0*1.5, proc.irf_model) / x_sf
     x_0_norm = x_0/x_sf    
-    bounds = list(zip(x_lb_norm, x_ub_norm))   
+    #TODO: implement bounds and constraints
+    #x_lb_norm = pkp_to_x(proc.fit_opts['pk_pars_lb'], s0_0*0.5, proc.irf_model) / x_sf
+    #x_ub_norm = pkp_to_x(proc.fit_opts['pk_pars_ub'], s0_0*1.5, proc.irf_model) / x_sf
+    #bounds = list(zip(x_lb_norm, x_ub_norm))   
     
     #perform fitting
-    res = minimize(obj_fun, x_0_norm, args=(x_sf, expt, data, proc, t_interp),
-             method='trust-constr', bounds=bounds)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
-    pk_pars_opt, s0_opt = x_to_pkp(res.x * x_sf, proc.irf_model)
-    s_fit = pkp_to_s(t_interp, expt, data, proc, pk_pars_opt, s0_opt)
+    #TODO: implement multistart
+    result = minimize(obj_fun, x_0_norm, args=(x_sf, s, proc),
+             method='trust-constr', bounds=None)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
+
+    s0_opt = result.x[0] * x_sf[0]
+    
+    pk_pars_opt = proc.pk_model.join_pk_pars(proc.pk_pars_0, result.x[2:] * x_sf[2:])
+
+    s_fit = pkp_to_s(pk_pars_opt, s0_opt, r_0_tissue, r_0_blood, proc)
     s_fit[np.logical_not(proc.fit_opts['t_mask'])]=np.nan
     
     return pk_pars_opt, s0_opt, s_fit
 
-def obj_fun(x, x_sf, t_interp, expt, data, proc, c_p_aif_interp):
-    pk_pars_try, s0_try = x_to_pkp(x * x_sf, proc.irf_model)
-    s_try = pkp_to_s(t_interp, c_p_aif_interp, pk_pars_try, s0_try, expt, data, proc)
-    ssq = np.sum(proc.fit_opts['t_mask']*((s_try - data.s)**2))
+def obj_fun(x, x_sf, s, proc):
+    
+    s0_try = x[0] * x_sf[0]
+    
+    pk_pars_try = proc.pk_model.join_pk_pars(proc.pk_pars_0, x[2:] * x_sf[2:])
+    
+    s_try = pkp_to_s(pk_pars_try, s0_try, data, proc)
+    
+    ssq = np.sum(proc.fit_opts['t_mask']*((s_try - s)**2))
+    
     return ssq
 
-def pkp_to_s(t_interp, c_p_aif_interp, pk_pars, s0_try, expt, data, proc):    
-    p_compartments = { 'b': pk_pars['vp']/(1-data.hct), 'e': pk_pars['ve'], 'i': 1-pk_pars['vp']/(1-data.hct)-pk_pars['ve'] } # DEFINE VB/USE hct HERE        
-    r_0_extravasc = { 'r1': (data.r_0_tissue['r1']-p_compartments['b']*data.r_0_blood['r1'])/(1-p_compartments['b']),
-                     'r2s': data.r_0_tissue['r2s'] }
-    r_0_compartments = { 'b': {'r1': data.r_0_blood['r1'], 'r2s': data.r_0_tissue['r2s']},
+
+def pkp_to_s(pk_pars, s0, r_0_tissue, r_0_blood, pk_model, rlxy_model, water_ex_model, signal_model):   
+    
+    p_compa = {
+        'b': pk_pars['vp']/(1-pk_model.hct),
+        'e': pk_pars['ve'],
+        'i': 1-pk_pars['vp']/(1-pk_model.hct)-pk_pars['ve']
+        } # DEFINE VB/USE hct HERE        
+    
+    r_0_extravasc = { 'r1': (r_0_tissue['r1']-p_compa ['b']*r_0_blood['r1'])/(1-p_compa['b']),
+                     'r2s': r_0_tissue['r2s'] }
+    
+    r_0_compa = { 'b': {'r1': r_0_blood['r1'], 'r2s': r_0_tissue['r2s']},
                          'e': r_0_extravasc,
                          'i': r_0_extravasc }
     
-    #c_compartments, c_t = models.pkp_to_c(t, t_interp, c_p_aif_interp, pk_pars, hct, irf_model)   # pk model -> c
-    pk_model = pk_model_type(expt.t, t_interp, c_p_aif_interp, pk_pars, proc.hct)
-    c_compartments, c_t = pk_model.conc()
+    c_compa, c_t = pk_model.conc(pk_pars)
+    
+    r_compa = rlxy_model.r_compa(r_0_compa, c_compa)
         
-    #r_compartments = c_to_r(c_compartments, r_0_compartments, c_to_r_model, rlxy_pars) # cr model, r0_compartments
+    s = water_ex_model.r_compa_to_s(s0, p_compa, r_compa, signal_model)
     
-    #r_components, p_components = r_compartments_to_components[water_model](r_compartments, p_compartments) # water model, r_compartments
-    
-    #s = r_components_to_s(s0, r_components, p_components, acq_pars, r_to_s_model) #signal model, r_components, s0 -> s
-    
-    #return s
+    return s
+
 
 def s_to_e(s, base_idx):
     s_pre = np.mean(s[base_idx])
@@ -115,21 +133,5 @@ def c_to_e_fxl(c_t, r_0, rlxy_pars, acq_pars, c_to_r_model, r_to_s_model):
     s_post = r_to_s[r_to_s_model](acq_pars, 1., r)
     e = 100. * ((s_post - s_pre) / s_pre)
     return e
-
-
-
-def pkp_to_x(pk_pars, s0, irf_model):
-    # create vector x listing values in pk_pars dict (in standard order), followed by s0
-    x = np.asarray([pk_pars[par] for par in models.req_pars[irf_model]] + [s0], dtype=np.float32)
-    return x
-
-def x_to_pkp(x, irf_model):
-    # convert vector x of parameter values to pk_pars dict and s0 value
-    parnames_in_x = [parname for parname in models.req_pars[irf_model]] #list pk parameter names corresponding to elements of x
-    pk_pars = {parname:x[n] for n, parname in enumerate(parnames_in_x)} # dictionary containing pk parameters from x
-    s0 = x[-1]
-    return pk_pars, s0
-
-
 
 

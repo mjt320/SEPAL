@@ -30,7 +30,7 @@ class water_ex_model:
     
 class fxl(water_ex_model):
     
-    def r_compa_to_compo(self, r_compa, p_compo):
+    def r_compa_to_compo(self, r_compa, p_compa):
         #r_compa is a dict with an entry for each of 3 compartments.
         # Each entry is a dict containing an entry for r1 and r2*
         # Each value is an array of relaxation rate values

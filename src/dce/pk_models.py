@@ -70,15 +70,14 @@ class patlak(pk_model):
     #Patlak model subclass
     
     def split_pk_pars(self, pk_pars):
-        var_pars = np.array( pk_pars['vp'], pk_pars['ps'] )
-        fixed_pars = { 've': pk_pars['ve'] }
-        return var_pars, fixed_pars    
+        var_pars_vect = [ pk_pars['vp'], pk_pars['ps'] ]
+        #fixed_pars = { 've': pk_pars['ve'] }
+        return var_pars_vect #fixed_pars
     
-    def join_pk_pars(self, var_pars, fixed_pars):
+    def join_pk_pars(self, fixed_pars, var_pars):
         pk_pars = {**fixed_pars,
-                   **{'vp': var_pars[0],
-                      've': var_pars[1] }
-                   }
+                   'vp': var_pars[0],
+                   've': var_pars[1] }
         return pk_pars
     
     def irf(self, pk_pars):
