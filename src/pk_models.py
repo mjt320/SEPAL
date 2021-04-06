@@ -9,10 +9,13 @@ PURPOSE: Module containin pharmacokinetic models.
     Includes dictionary of all model functions, to allow switching between models.
 """
 
+from abc import ABC, abstractmethod
+
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.optimize import LinearConstraint
 
+from . import aifs
 
 # Dictionary of parameters associated with each model (WIP)
 req_pars = {'patlak': ('vp', 'ps', 've'), # (v_e required to determine local EES concentration)         
@@ -23,23 +26,30 @@ pkp_constraints = {'patlak': LinearConstraint([[1., 0., 0., 0.],[1., 0., 1., 0.]
                  }
 
 
-class pk_model():
+class pk_model(ABC):
+    # PK model containing time points, aif and hct
+    # used to return concentrations for specified PK parameters
 
-    def __init__(self, t, dt_interp_request, c_p_aif, hct):
+    def __init__(self, t, dt_interp_request, aif, hct):
         self.t = t        
-        self.c_p_aif = c_p_aif
+        self.aif = aif
         self.hct = hct
         
         #interpolate time points and AIF
         self.dt_interp, self.t_interp = interpolate_time_series(dt_interp_request, t)
-        #interpolate AIF
-        f=interp1d(t, c_p_aif, kind='quadratic', bounds_error=False, fill_value = c_p_aif[0])
-        self.c_p_aif_interp = f(self.t_interp) 
-        self.n_interp = self.t_interp.size()
-        self.n = self.t.size()
-        
+        self.c_ap_interp = aif.c_ap(self.t_interp)
+        self.n_interp = self.t_interp.size
+        self.n = self.t.size
+     
+    @abstractmethod
+    def pars_asvect(self, pk_pars_dict):
+        pass
+    
+    @abstractmethod
+    def pars_asdict(self, pk_pars_dict, pk_pars_vect):
+        pass
 
-        
+    @abstractmethod
     def irf(self, pk_pars):
         pass    
         
@@ -48,8 +58,8 @@ class pk_model():
         h_cp, h_e = self.irf(pk_pars)
     
         # Do the convolutions, taking only results in the required range    
-        c_cp_interp = self.dt_interp * np.convolve(self.c_p_aif_interp, h_cp , mode='full')[:self.n_interp]
-        c_e_interp  = self.dt_interp * np.convolve(self.c_p_aif_interp, h_e  , mode='full')[:self.n_interp]
+        c_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, h_cp , mode='full')[:self.n_interp]
+        c_e_interp  = self.dt_interp * np.convolve(self.c_ap_interp, h_e  , mode='full')[:self.n_interp]
         
         # Resample concentrations at the measured time points
         c_cp = np.interp(self.t, self.t_interp, c_cp_interp)
@@ -63,21 +73,26 @@ class pk_model():
             }
         
         return  c, c_t
+    
+    @abstractmethod
+    def constraints(self):
+        pass
+    
 
 
     
 class patlak(pk_model):
     #Patlak model subclass
     
-    def split_pk_pars(self, pk_pars):
+    def pars_asvect(self, pk_pars):
         var_pars_vect = [ pk_pars['vp'], pk_pars['ps'] ]
         #fixed_pars = { 've': pk_pars['ve'] }
         return var_pars_vect #fixed_pars
     
-    def join_pk_pars(self, fixed_pars, var_pars):
+    def pars_asdict(self, fixed_pars, var_pars):
         pk_pars = {**fixed_pars,
                    'vp': var_pars[0],
-                   've': var_pars[1] }
+                   'ps': var_pars[1] }
         return pk_pars
     
     def irf(self, pk_pars):
@@ -91,6 +106,9 @@ class patlak(pk_model):
         h_e[0] = h_e[0]/2.
         
         return h_cp, h_e
+    
+    def constraints(self):
+        return ()
 
     
 def interpolate_time_series(dt_required, t):
