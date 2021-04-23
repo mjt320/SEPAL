@@ -35,11 +35,11 @@ class pk_model(ABC):
         self.n = self.t.size
      
     @abstractmethod
-    def pars_asvect(self, pk_pars_dict):
+    def var_pars(self, pk_pars):
         pass
     
     @abstractmethod
-    def pars_asdict(self, pk_pars_dict, pk_pars_vect):
+    def all_pars(self, all_pars):
         pass
     
     @abstractmethod
@@ -55,7 +55,7 @@ class pk_model(ABC):
         pass
         
     def conc(self, pk_pars):        
-   
+      
         h_cp, h_e = self.irf(pk_pars)
     
         # Do the convolutions, taking only results in the required range    
@@ -80,21 +80,26 @@ class pk_model(ABC):
 class patlak(pk_model):
     #Patlak model subclass
     
-    def pars_asvect(self, pk_pars):
-        var_pars_vect = [ pk_pars['vp'], pk_pars['ps'] ]
-        #fixed_pars = { 've': pk_pars['ve'] }
-        return var_pars_vect #fixed_pars
+    def var_pars(self, pk_pars):
+        # take a dict of parameters and return variable parameters as a list
+        var_pars = [ pk_pars['vp'], pk_pars['ps'] ]
+        return var_pars
     
-    def pars_asdict(self, fixed_pars, var_pars):
-        pk_pars = {**fixed_pars,
-                   'vp': var_pars[0],
-                   'ps': var_pars[1] }
+    def all_pars(self, vp, ps):
+        # take variable parameters and all parameters as a dict, making sure
+        # they are consistent with the model
+        pk_pars = {'vp': vp,
+                   'ps': ps,
+                   've': 1. - vp/(1.-self.hct),
+                   'vi': 0.,
+                   'vb': vp/(1.-self.hct)
+                   }
         return pk_pars
     
     def typicalx(self):
         pk_typical = { 'vp': 0.1,
                        'ps': 1e-3 }
-        x_typical = self.pars_asvect(pk_typical)
+        x_typical = self.var_pars(pk_typical)
         return x_typical
     
     def irf(self, pk_pars):
