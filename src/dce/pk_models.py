@@ -12,18 +12,11 @@ PURPOSE: Module containin pharmacokinetic models.
 from abc import ABC, abstractmethod
 
 import numpy as np
-from scipy.interpolate import interp1d
 from scipy.optimize import LinearConstraint
 
-from . import aifs
+from dce import aifs
 
-# Dictionary of parameters associated with each model (WIP)
-req_pars = {'patlak': ('vp', 'ps', 've'), # (v_e required to determine local EES concentration)         
-          }
 
-# Dictionary of constraints for each model (WIP)
-pkp_constraints = {'patlak': LinearConstraint([[1., 0., 0., 0.],[1., 0., 1., 0.]], [0., 0.], [1., 1.])     
-                 }
 
 
 class pk_model(ABC):
@@ -48,10 +41,18 @@ class pk_model(ABC):
     @abstractmethod
     def pars_asdict(self, pk_pars_dict, pk_pars_vect):
         pass
-
+    
+    @abstractmethod
+    def typicalx(self):
+        pass
+    
     @abstractmethod
     def irf(self, pk_pars):
         pass    
+    
+    @abstractmethod
+    def constraints(self):
+        pass
         
     def conc(self, pk_pars):        
    
@@ -73,11 +74,6 @@ class pk_model(ABC):
             }
         
         return  c, c_t
-    
-    @abstractmethod
-    def constraints(self):
-        pass
-    
 
 
     
@@ -95,6 +91,12 @@ class patlak(pk_model):
                    'ps': var_pars[1] }
         return pk_pars
     
+    def typicalx(self):
+        pk_typical = { 'vp': 0.1,
+                       'ps': 1e-3 }
+        x_typical = self.pars_asvect(pk_typical)
+        return x_typical
+    
     def irf(self, pk_pars):
 
         #calculate h_cp, i.e. delta function at time zero
@@ -109,6 +111,7 @@ class patlak(pk_model):
     
     def constraints(self):
         return ()
+
 
     
 def interpolate_time_series(dt_required, t):

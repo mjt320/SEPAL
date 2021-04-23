@@ -8,9 +8,7 @@ Created on Wed Mar  3 09:41:24 2021
 from abc import ABC, abstractmethod
 import numpy as np
 
-from . import signal_models
-#import signal_models
-from . import relax
+from dce import signal_models, relax
 
 class water_ex_model(ABC):
     # water exchange model.
@@ -49,13 +47,22 @@ class fxl(water_ex_model):
 class nxl(water_ex_model):
     
     def r_components(self, r_compa, p_compa):
-        #r_compa is a dict of relaxations (1 per tissue compartment)
-        #p_compa is a dict of populations (1 per tissue compartment)
-        #r_compo is a list of relaxations, (1 per relaxation component)
-        #p_compo is a list of relaxations, (1 per relaxation component)
         r2s_mean = np.sum([p_compa[compartment]*r_compa[compartment].r_2s for compartment in r_compa.keys()] ,0)
         r_compo = [ relax.relaxation(r_1 = r_compa['b'].r_1, r_2s = r2s_mean) ,
                     relax.relaxation(r_1 = r_compa['e'].r_1, r_2s = r2s_mean) ,
                     relax.relaxation(r_1 = r_compa['i'].r_1, r_2s = r2s_mean) ]
         p_compo = [ p_compa['b'], p_compa['e'], p_compa['i'] ]
+        return r_compo, p_compo
+    
+class ntexl(water_ex_model):
+    
+    def r_components(self, r_compa, p_compa):
+        r2s_mean = np.sum([p_compa[compartment]*r_compa[compartment].r_2s for compartment in r_compa.keys()] ,0)
+
+        r1_ev = p_compa['e']*r_compa['e'].r_1 + p_compa['i']*r_compa['i'].r_1
+        p_ev = p_compa['e'] + p_compa['i']
+        
+        r_compo = [ relax.relaxation(r_compa['b'].r_1, r2s_mean) ,
+                    relax.relaxation(r1_ev, r2s_mean) ]
+        p_compo = [ p_compa['b'], p_ev ]
         return r_compo, p_compo

@@ -5,6 +5,8 @@ Created on Tue Apr  6 10:40:31 2021
 @author: mthripp1
 """
 
+#TODO: time delay/shift
+
 from abc import ABC, abstractmethod
 
 import numpy as np

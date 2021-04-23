@@ -11,13 +11,16 @@ import numpy as np
 from scipy.optimize import root, minimize
 from scipy.interpolate import interp1d
 
-from . import relax
+from dce import relax
 
 # TODO
-# FIT CONC etc.
-# ADD MODELS
-# TESTING
-# CONSTRAINT AND MODEL FLEXIBILITY
+# get conc calculation working
+# fit concentration
+# test with constraints
+# ADD more MODELS
+# ADD T1 FITTING
+# TESTING - more jupyter notebook tests
+# DOCUMENTATION
 # DEAL WITH FIT WARNINGS
 # EXCEPTIONS
 # ADD MULTISTART
@@ -50,11 +53,12 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
     # estimate s0, scale parameters
     s0_0 = s[0] / signal_model.signal(1., r0_tissue)
     
+    # list of variable parameters = s0 + variable PK parameters
     x_0 = np.array( [ s0_0, *pk_model.pars_asvect(fit_opts['pk_pars_0']) ] )
 
-    # use initial values to scale variables    
-    x_sf= x_0 
-    x_0_norm = x_0/x_sf    
+    x_scalefactor = [ s0_0, *pk_model.typicalx() ]
+    
+    x_0_norm = x_0 / x_scalefactor    
     #TODO: implement bounds and constraints
     #x_lb_norm = pkp_to_x(proc.fit_opts['pk_pars_lb'], s0_0*0.5, proc.irf_model) / x_sf
     #x_ub_norm = pkp_to_x(proc.fit_opts['pk_pars_ub'], s0_0*1.5, proc.irf_model) / x_sf
@@ -62,20 +66,18 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
     
     #define function to minimise
     def obj_fun(x, *args):
-        s0_try = x[0] * x_sf[0]
-        pk_pars_try = pk_model.pars_asdict(fit_opts['pk_pars_0'], x[1:] * x_sf[1:])
+        s0_try = x[0] * x_scalefactor[0]
+        pk_pars_try = pk_model.pars_asdict(fit_opts['pk_pars_0'], x[1:] * x_scalefactor[1:])
         s_try = pkp_to_s(pk_pars_try, s0_try, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
         ssq = np.sum(fit_opts['t_mask']*((s_try - s)**2))    
         return ssq
     
     #perform fitting
-    #TODO: implement multistart
     result = minimize(obj_fun, x_0_norm, args=None,
              method='trust-constr', bounds=None, constraints=pk_model.constraints())#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
 
-    s0_opt = result.x[0] * x_sf[0]
-    
-    pk_pars_opt = pk_model.pars_asdict(fit_opts['pk_pars_0'], result.x[1:] * x_sf[1:])
+    s0_opt = result.x[0] * x_scalefactor[0]
+    pk_pars_opt = pk_model.pars_asdict(fit_opts['pk_pars_0'], result.x[1:] * x_scalefactor[1:])
 
     s_fit = pkp_to_s(pk_pars_opt, s0_opt, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
     s_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
@@ -90,7 +92,7 @@ def pkp_to_s(pk_pars, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_
     p_compa = {
         'b': pk_pars['vp']/(1-pk_model.hct),
         'e': pk_pars['ve'],
-        'i': 1-pk_pars['vp']/(1-pk_model.hct)-pk_pars['ve']
+        'i': 1. - pk_pars['vp']/(1-pk_model.hct) - pk_pars['ve']
         } # DEFINE VB/USE hct HERE        
        
     r0_extravasc = relax.relaxation(
@@ -106,8 +108,3 @@ def pkp_to_s(pk_pars, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_
     s = water_ex_model.r_compa_to_s(s0, p_compa, r_compa, signal_model, k)
     
     return s
-
-
-
-
-
