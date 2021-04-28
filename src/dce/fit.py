@@ -5,11 +5,8 @@ Created on Sat Oct 31 09:03:05 2020
 @author: mthripp1
 """
 
-from dataclasses import dataclass
-
 import numpy as np
 from scipy.optimize import root, minimize
-from scipy.interpolate import interp1d
 
 from dce import relax
 
