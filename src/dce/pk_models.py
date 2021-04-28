@@ -17,8 +17,6 @@ from scipy.optimize import LinearConstraint
 from dce import aifs
 
 
-
-
 class pk_model(ABC):
     # PK model containing time points, aif and hct
     # used to return concentrations for specified PK parameters
@@ -33,7 +31,32 @@ class pk_model(ABC):
         self.c_ap_interp = aif.c_ap(self.t_interp)
         self.n_interp = self.t_interp.size
         self.n = self.t.size
-     
+
+    def conc(self, pk_pars):        
+
+        h_cp, h_e, pk_pars_all = self.irf(pk_pars)
+    
+        # Do the convolutions, taking only results in the required range    
+        c_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, h_cp , mode='full')[:self.n_interp]
+        c_e_interp  = self.dt_interp * np.convolve(self.c_ap_interp, h_e  , mode='full')[:self.n_interp]
+        
+        # Resample concentrations at the measured time points
+        c_cp = np.interp(self.t, self.t_interp, c_cp_interp)
+        c_e  = np.interp(self.t, self.t_interp, c_e_interp)
+        
+        c_t = pk_pars_all['vp'] * c_cp + pk_pars_all['ve'] * c_e
+        c = {
+            'b': c_cp * (1-self.hct),
+            'e': c_e,
+            'i': np.zeros(self.n)
+            }
+        
+        return  c, c_t, pk_pars_all
+
+    @abstractmethod
+    def irf(self):
+        pass  
+        
     @abstractmethod
     def var_pars(self, pk_pars):
         pass
@@ -47,38 +70,27 @@ class pk_model(ABC):
         pass
     
     @abstractmethod
-    def irf(self, pk_pars):
-        pass    
-    
-    @abstractmethod
     def constraints(self):
         pass
-        
-    def conc(self, pk_pars):        
-      
-        h_cp, h_e = self.irf(pk_pars)
-    
-        # Do the convolutions, taking only results in the required range    
-        c_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, h_cp , mode='full')[:self.n_interp]
-        c_e_interp  = self.dt_interp * np.convolve(self.c_ap_interp, h_e  , mode='full')[:self.n_interp]
-        
-        # Resample concentrations at the measured time points
-        c_cp = np.interp(self.t, self.t_interp, c_cp_interp)
-        c_e  = np.interp(self.t, self.t_interp, c_e_interp)
-        
-        c_t = pk_pars['vp'] * c_cp + pk_pars['ve'] * c_e
-        c = {
-            'b': c_cp * (1-self.hct),
-            'e': c_e,
-            'i': np.zeros(self.n)
-            }
-        
-        return  c, c_t
 
 
     
 class patlak(pk_model):
     #Patlak model subclass
+    
+    def irf(self, pk_pars):
+
+        pk_pars_all = self.all_pars(pk_pars['vp'], pk_pars['ps'])
+        
+        #calculate h_cp, i.e. delta function at time zero
+        h_cp = np.zeros(self.n_interp, dtype=float)
+        h_cp[0] = 1./self.dt_interp
+
+        #calculate h_e
+        h_e = np.ones(self.n_interp, dtype=float) * (1./60.) * ( pk_pars_all['ps'] / pk_pars_all['ve'] )
+        h_e[0] = h_e[0]/2.
+        
+        return h_cp, h_e, pk_pars_all
     
     def var_pars(self, pk_pars):
         # take a dict of parameters and return variable parameters as a list
@@ -101,19 +113,7 @@ class patlak(pk_model):
                        'ps': 1e-3 }
         x_typical = self.var_pars(pk_typical)
         return x_typical
-    
-    def irf(self, pk_pars):
-
-        #calculate h_cp, i.e. delta function at time zero
-        h_cp = np.zeros(self.n_interp, dtype=float)
-        h_cp[0] = 1./self.dt_interp
-
-        #calculate h_e
-        h_e = np.ones(self.n_interp, dtype=float) * (1./60.) * ( pk_pars['ps'] / pk_pars['ve'] )
-        h_e[0] = h_e[0]/2.
-        
-        return h_cp, h_e
-    
+  
     def constraints(self):
         return ()
 

@@ -14,12 +14,12 @@ from scipy.interpolate import interp1d
 from dce import relax
 
 # TODO
-# decide what should be lists vs. nparrays
+# jupyter notebooks for pk_models etc.
 # ADD more MODELS
 # ADD T1 FITTING
-# jupyter notebooks for pk_models etc.
 # DOCUMENTATION
 # DEAL WITH FIT WARNINGS
+# optimise tolerances etc.
 # EXCEPTIONS
 # ADD MULTISTART
 
@@ -60,7 +60,7 @@ def c_to_pkp(c_t, pk_model, fit_opts = None):
     def obj_fun(x_norm, *args):
         x = x_norm * x_scalefactor
         pk_pars_try = pk_model.all_pars(*x)
-        _c, c_t_try = pk_model.conc(pk_pars_try)
+        _c, c_t_try, _pk_pars_all = pk_model.conc(pk_pars_try)
         ssq = np.sum(fit_opts['t_mask']*((c_t_try - c_t)**2))    
         return ssq
     
@@ -71,7 +71,7 @@ def c_to_pkp(c_t, pk_model, fit_opts = None):
     x_opt = result.x * x_scalefactor
     pk_pars_opt = pk_model.all_pars(*x_opt)
 
-    _c, c_fit = pk_model.conc(pk_pars_opt)
+    _c, c_fit, _pars = pk_model.conc(pk_pars_opt)
     c_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
     
     return pk_pars_opt, c_fit
@@ -122,11 +122,13 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
 
 
 def pkp_to_s(pk_pars, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
+   
+    c_compa, c_t, pk_pars_all = pk_model.conc(pk_pars) 
     
     p_compa = {
-        'b': pk_pars['vb'],
-        'e': pk_pars['ve'],
-        'i': pk_pars['vi']
+        'b': pk_pars_all['vb'],
+        'e': pk_pars_all['ve'],
+        'i': pk_pars_all['vi']
         }
        
     r0_extravasc = relax.relaxation(
@@ -137,7 +139,6 @@ def pkp_to_s(pk_pars, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_
                  'e': r0_extravasc,
                  'i': r0_extravasc }
    
-    c_compa, c_t = pk_model.conc(pk_pars)    
     r_compa = c_to_r_model.r_compa(r0_compa, c_compa)        
     s = water_ex_model.r_compa_to_s(s0, p_compa, r_compa, signal_model, k)
     
