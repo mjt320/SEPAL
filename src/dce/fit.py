@@ -49,26 +49,24 @@ def c_to_pkp(c_t, pk_model, fit_opts = None):
         fit_opts['t_mask'] = np.ones(c_t.shape)
         
     # list of variable parameters = s0 + variable PK parameters
-    x_0 = np.array( pk_model.var_pars(fit_opts['pk_pars_0']) )
-    x_scalefactor = np.array( pk_model.typicalx() )
+    x_0 = pk_model.pkp_array(fit_opts['pk_pars_0'])
+    x_scalefactor = pk_model.typical_pars
     x_0_norm = x_0 / x_scalefactor    
     
     #define function to minimise
-    def obj_fun(x_norm, *args):
+    def cost(x_norm, *args):
         x = x_norm * x_scalefactor
-        pk_pars_try = pk_model.all_pars(*x)
-        _c, c_t_try, _pk_pars_all = pk_model.conc(pk_pars_try)
+        c_t_try, _C_cp, _C_e = pk_model.conc(*x)
         ssq = np.sum(fit_opts['t_mask']*((c_t_try - c_t)**2))    
         return ssq
     
     #perform fitting
-    result = minimize(obj_fun, x_0_norm, args=None,
-             method='trust-constr', bounds=None, constraints=pk_model.constraints())#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
+    result = minimize(cost, x_0_norm, args=None,
+             method='trust-constr', bounds=None, constraints=pk_model.constraints)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
 
     x_opt = result.x * x_scalefactor
-    pk_pars_opt = pk_model.all_pars(*x_opt)
-
-    _c, c_fit, _pars = pk_model.conc(pk_pars_opt)
+    pk_pars_opt = pk_model.pkp_dict(x_opt)
+    c_fit, _C_cp, _C_e = pk_model.conc(*x_opt)
     c_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
     
     return pk_pars_opt, c_fit
@@ -85,7 +83,7 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
     # list of variable parameters = s0 + variable PK parameters
     x_0 = np.array( [ s0_0, *pk_model.var_pars(fit_opts['pk_pars_0']) ] )
 
-    x_scalefactor = np.array( [ s0_0, *pk_model.typicalx() ] )
+    x_scalefactor = np.array( [ s0_0, *pk_model.typical_pars ] )
     
     x_0_norm = x_0 / x_scalefactor    
     #TODO: implement bounds and constraints
@@ -94,7 +92,7 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
     #bounds = list(zip(x_lb_norm, x_ub_norm))   
     
     #define function to minimise
-    def obj_fun(x_norm, *args):
+    def cost(x_norm, *args):
         x = x_norm * x_scalefactor
         s0_try = x[0]
         pk_pars_try = pk_model.all_pars(*x[1:])
@@ -103,7 +101,7 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
         return ssq
     
     #perform fitting
-    result = minimize(obj_fun, x_0_norm, args=None,
+    result = minimize(cost, x_0_norm, args=None,
              method='trust-constr', bounds=None, constraints=pk_model.constraints())#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
 
     x_opt = result.x * x_scalefactor

@@ -20,6 +20,10 @@ from dce import aifs
 class pk_model(ABC):
     # PK model containing time points, aif and hct
     # used to return concentrations for specified PK parameters
+    
+    PARAMETERS = None
+    DEFAULT_TYPICAL_PARS = None
+    DEFAULT_CONSTRAINTS = None
 
     def __init__(self, t, dt_interp_request, aif, hct):
         self.t = t        
@@ -31,91 +35,59 @@ class pk_model(ABC):
         self.c_ap_interp = aif.c_ap(self.t_interp)
         self.n_interp = self.t_interp.size
         self.n = self.t.size
+        
+        self.typical_pars = type(self).DEFAULT_TYPICAL_PARS
+        self.constraints = type(self).DEFAULT_CONSTRAINTS
 
-    def conc(self, pk_pars):        
+    def conc(self, *pk_pars):        
 
-        h_cp, h_e, pk_pars_all = self.irf(pk_pars)
+        h_cp, h_e = self.irf(*pk_pars)
     
         # Do the convolutions, taking only results in the required range    
-        c_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, h_cp , mode='full')[:self.n_interp]
-        c_e_interp  = self.dt_interp * np.convolve(self.c_ap_interp, h_e  , mode='full')[:self.n_interp]
+        C_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, h_cp , mode='full')[:self.n_interp]
+        C_e_interp  = self.dt_interp * np.convolve(self.c_ap_interp, h_e  , mode='full')[:self.n_interp]
         
         # Resample concentrations at the measured time points
-        c_cp = np.interp(self.t, self.t_interp, c_cp_interp)
-        c_e  = np.interp(self.t, self.t_interp, c_e_interp)
+        C_cp = np.interp(self.t, self.t_interp, C_cp_interp)
+        C_e  = np.interp(self.t, self.t_interp, C_e_interp)
         
-        c_t = pk_pars_all['vp'] * c_cp + pk_pars_all['ve'] * c_e
-        c = {
-            'b': c_cp * (1-self.hct),
-            'e': c_e,
-            'i': np.zeros(self.n)
-            }
-        
-        return  c, c_t, pk_pars_all
+        c_t = C_cp + C_e
+       
+        return  c_t, C_cp, C_e
 
     @abstractmethod
     def irf(self):
         pass  
         
-    @abstractmethod
-    def var_pars(self, pk_pars):
-        pass
+    def pkp_array(self, pkp_dict):
+        return np.array([ pkp_dict[p] for p in type(self).PARAMETER_NAMES ])
     
-    @abstractmethod
-    def all_pars(self, all_pars):
+    def pkp_dict(self, pkp_array):
+        return dict(zip(type(self).PARAMETER_NAMES, pkp_array))
         pass
-    
-    @abstractmethod
-    def typicalx(self):
-        pass
-    
-    @abstractmethod
-    def constraints(self):
-        pass
+
 
 
     
 class patlak(pk_model):
     #Patlak model subclass
     
-    def irf(self, pk_pars):
+    PARAMETER_NAMES = ['vp', 'ps']
+    DEFAULT_TYPICAL_PARS = np.array([ 0.1, 1.e-3])
+    DEFAULT_CONSTRAINTS = ()
+    
+    def irf(self, vp, ps):
 
-        pk_pars_all = self.all_pars(pk_pars['vp'], pk_pars['ps'])
-        
-        #calculate h_cp, i.e. delta function at time zero
-        h_cp = np.zeros(self.n_interp, dtype=float)
-        h_cp[0] = 1./self.dt_interp
+        #calculate irf for capillary plasma (delta function centred at time zero)
+        irf_cp = np.zeros(self.n_interp, dtype=float)
+        irf_cp[0] = vp / self.dt_interp
 
-        #calculate h_e
-        h_e = np.ones(self.n_interp, dtype=float) * (1./60.) * ( pk_pars_all['ps'] / pk_pars_all['ve'] )
-        h_e[0] = h_e[0]/2.
+        #calculate irf for the EES (constant term)
+        irf_e = np.ones(self.n_interp, dtype=float) * (1./60.) * ps
+        irf_e[0] = irf_e[0]/2.
         
-        return h_cp, h_e, pk_pars_all
-    
-    def var_pars(self, pk_pars):
-        # take a dict of parameters and return variable parameters as a list
-        var_pars = [ pk_pars['vp'], pk_pars['ps'] ]
-        return var_pars
-    
-    def all_pars(self, vp, ps):
-        # take variable parameters and all parameters as a dict, making sure
-        # they are consistent with the model
-        pk_pars = {'vp': vp,
-                   'ps': ps,
-                   've': 1. - vp/(1.-self.hct),
-                   'vi': 0.,
-                   'vb': vp/(1.-self.hct)
-                   }
-        return pk_pars
-    
-    def typicalx(self):
-        pk_typical = { 'vp': 0.1,
-                       'ps': 1e-3 }
-        x_typical = self.var_pars(pk_typical)
-        return x_typical
-  
-    def constraints(self):
-        return ()
+        return irf_cp, irf_e
+
 
 
     
