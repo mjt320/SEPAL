@@ -17,16 +17,17 @@ class aif(ABC):
     @abstractmethod
     def c_ap(self):
         pass
+ 
     
 class patient_specific(aif):
     
     def __init__(self, t_data, c_ap_data):
         self.t_data = t_data
         self.c_ap_data = c_ap_data
-        self.f=interp1d(t_data, c_ap_data, kind='quadratic', bounds_error=False, fill_value = c_ap_data[0])        
+        self.c_ap_func=interp1d(t_data, c_ap_data, kind='quadratic', bounds_error=False, fill_value = c_ap_data[0])        
         
     def c_ap(self, t):        
-        c_ap = self.f(t) 
+        c_ap = self.c_ap_func(t) 
         return c_ap
 
     
