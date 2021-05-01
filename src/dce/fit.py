@@ -44,9 +44,9 @@ def c_to_e(c, k, r0, c_to_r_model, signal_model):
     e = 100. * ((s_post - s_pre) / s_pre)
     return e
 
-def c_to_pkp(c_t, pk_model, fit_opts = None):
+def c_to_pkp(C_t, pk_model, fit_opts = None):
     if 't_mask' not in fit_opts:
-        fit_opts['t_mask'] = np.ones(c_t.shape)
+        fit_opts['t_mask'] = np.ones(C_t.shape)
         
     # list of variable parameters = s0 + variable PK parameters
     x_0 = pk_model.pkp_array(fit_opts['pk_pars_0'])
@@ -56,8 +56,8 @@ def c_to_pkp(c_t, pk_model, fit_opts = None):
     #define function to minimise
     def cost(x_norm, *args):
         x = x_norm * x_scalefactor
-        c_t_try, _C_cp, _C_e = pk_model.conc(*x)
-        ssq = np.sum(fit_opts['t_mask']*((c_t_try - c_t)**2))    
+        C_t_try, _C_cp, _C_e = pk_model.conc(*x)
+        ssq = np.sum(fit_opts['t_mask']*((C_t_try - C_t)**2))    
         return ssq
     
     #perform fitting
@@ -66,10 +66,10 @@ def c_to_pkp(c_t, pk_model, fit_opts = None):
 
     x_opt = result.x * x_scalefactor
     pk_pars_opt = pk_model.pkp_dict(x_opt)
-    c_fit, _C_cp, _C_e = pk_model.conc(*x_opt)
-    c_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
+    C_fit, _C_cp, _C_e = pk_model.conc(*x_opt)
+    C_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
     
-    return pk_pars_opt, c_fit
+    return pk_pars_opt, C_fit
 
 
 def s_to_pkp(s, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model, fit_opts=None):
@@ -118,7 +118,7 @@ def s_to_pkp(s, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_mo
 
 def pkp_to_s(pk_pars, hct, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
    
-    c_t, C_cp, C_e = pk_model.conc(**pk_pars)     
+    C_t, C_cp, C_e = pk_model.conc(**pk_pars)     
     v_compa = pkp_to_v(pk_pars, hct)    
     c_compa = { 'b': C_cp / v_compa['b'],
                 'e': C_e / v_compa['e'],
@@ -139,18 +139,21 @@ def pkp_to_s(pk_pars, hct, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, w
     return s
 
 def pkp_to_v(pk_pars, hct):
+    # if vp exists, calculate vb, otherwise set vb to zero
     if 'vp' in pk_pars:
         vb = pk_pars['vp'] / (1 - hct)
     else:
         vb = 0
     
+    # if ve exists define vi as remaining volume, otherwise set to vi zero
     if 've' in pk_pars:
         ve = pk_pars['ve']
+        vi = 1 - vb - ve
     else:
         ve = 1 - vb
+        vi = 0    
     
-    vi = 1 - vb - ve
-    v = {'vb': vb, 've': ve, 'vi': vi}
+    v = {'b': vb, 'e': ve, 'i': vi}
     return v
     
     

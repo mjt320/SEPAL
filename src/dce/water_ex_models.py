@@ -58,9 +58,9 @@ class ntexl(water_ex_model):
     
     def r_components(self, r_compa, p_compa):
         r2s_mean = np.sum([p_compa[compartment]*r_compa[compartment].r_2s for compartment in r_compa.keys()] ,0)
-
-        r1_ev = p_compa['e']*r_compa['e'].r_1 + p_compa['i']*r_compa['i'].r_1
+       
         p_ev = p_compa['e'] + p_compa['i']
+        r1_ev = (p_compa['e']*r_compa['e'].r_1 + p_compa['i']*r_compa['i'].r_1) / p_ev
         
         r_compo = [ relax.relaxation(r_compa['b'].r_1, r2s_mean) ,
                     relax.relaxation(r1_ev, r2s_mean) ]

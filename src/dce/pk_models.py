@@ -12,7 +12,6 @@ PURPOSE: Module containin pharmacokinetic models.
 from abc import ABC, abstractmethod
 
 import numpy as np
-from scipy.optimize import LinearConstraint
 
 from dce import aifs
 
@@ -38,9 +37,9 @@ class pk_model(ABC):
         self.typical_pars = type(self).DEFAULT_TYPICAL_PARS
         self.constraints = type(self).DEFAULT_CONSTRAINTS
 
-    def conc(self, *pk_pars):        
+    def conc(self, *pk_pars, **pk_pars_kw):        
 
-        h_cp, h_e = self.irf(*pk_pars)
+        h_cp, h_e = self.irf(*pk_pars, **pk_pars_kw)
     
         # Do the convolutions, taking only results in the required range    
         C_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, h_cp , mode='full')[:self.n_interp]
@@ -50,9 +49,9 @@ class pk_model(ABC):
         C_cp = np.interp(self.t, self.t_interp, C_cp_interp)
         C_e  = np.interp(self.t, self.t_interp, C_e_interp)
         
-        c_t = C_cp + C_e
+        C_t = C_cp + C_e
        
-        return  c_t, C_cp, C_e
+        return  C_t, C_cp, C_e
 
     @abstractmethod
     def irf(self):
@@ -66,7 +65,22 @@ class pk_model(ABC):
         pass
 
 
+class steady_state_vp(pk_model):
+    
+    PARAMETER_NAMES = ['vp']
+    DEFAULT_TYPICAL_PARS = np.array([ 0.1 ])
+    DEFAULT_CONSTRAINTS = ()
+    
+    def irf(self, vp):
 
+        #calculate irf for capillary plasma (delta function centred at time zero)
+        irf_cp = np.zeros(self.n_interp, dtype=float)
+        irf_cp[0] = vp / self.dt_interp
+
+        #calculate irf for the EES (constant term)
+        irf_e = np.zeros(self.n_interp, dtype=float)
+        
+        return irf_cp, irf_e    
     
 class patlak(pk_model):
     #Patlak model subclass
