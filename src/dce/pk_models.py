@@ -18,17 +18,16 @@ from dce import aifs
 
 
 class pk_model(ABC):
-    # PK model containing time points, aif and hct
+    # PK model containing time points, aif
     # used to return concentrations for specified PK parameters
     
     PARAMETERS = None
     DEFAULT_TYPICAL_PARS = None
     DEFAULT_CONSTRAINTS = None
 
-    def __init__(self, t, dt_interp_request, aif, hct):
+    def __init__(self, t, dt_interp_request, aif):
         self.t = t        
         self.aif = aif
-        self.hct = hct
         
         #interpolate time points and AIF
         self.dt_interp, self.t_interp = interpolate_time_series(dt_interp_request, t)
@@ -75,7 +74,8 @@ class patlak(pk_model):
     PARAMETER_NAMES = ['vp', 'ps']
     DEFAULT_TYPICAL_PARS = np.array([ 0.1, 1.e-3])
     DEFAULT_CONSTRAINTS = ()
-    
+
+       
     def irf(self, vp, ps):
 
         #calculate irf for capillary plasma (delta function centred at time zero)

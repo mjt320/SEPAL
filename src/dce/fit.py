@@ -72,7 +72,7 @@ def c_to_pkp(c_t, pk_model, fit_opts = None):
     return pk_pars_opt, c_fit
 
 
-def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model, fit_opts=None):
+def s_to_pkp(s, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model, fit_opts=None):
 
     if 't_mask' not in fit_opts:
         fit_opts['t_mask'] = np.ones(s.shape)
@@ -81,7 +81,7 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
     s0_0 = s[0] / signal_model.signal(1., r0_tissue)
     
     # list of variable parameters = s0 + variable PK parameters
-    x_0 = np.array( [ s0_0, *pk_model.var_pars(fit_opts['pk_pars_0']) ] )
+    x_0 = np.array( [ s0_0, *pk_model.pkp_array(fit_opts['pk_pars_0']) ] )
 
     x_scalefactor = np.array( [ s0_0, *pk_model.typical_pars ] )
     
@@ -95,20 +95,20 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
     def cost(x_norm, *args):
         x = x_norm * x_scalefactor
         s0_try = x[0]
-        pk_pars_try = pk_model.all_pars(*x[1:])
-        s_try = pkp_to_s(pk_pars_try, s0_try, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
+        pk_pars_try = pk_model.pkp_dict(x[1:])
+        s_try = pkp_to_s(pk_pars_try, hct, s0_try, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
         ssq = np.sum(fit_opts['t_mask']*((s_try - s)**2))    
         return ssq
     
     #perform fitting
     result = minimize(cost, x_0_norm, args=None,
-             method='trust-constr', bounds=None, constraints=pk_model.constraints())#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
+             method='trust-constr', bounds=None, constraints=pk_model.constraints)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
 
     x_opt = result.x * x_scalefactor
     s0_opt = x_opt[0]
-    pk_pars_opt = pk_model.all_pars(*x_opt[1:])
+    pk_pars_opt = pk_model.pkp_dict(x_opt[1:])
 
-    s_fit = pkp_to_s(pk_pars_opt, s0_opt, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
+    s_fit = pkp_to_s(pk_pars_opt, hct, s0_opt, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
     s_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
     
     return pk_pars_opt, s0_opt, s_fit
@@ -116,15 +116,14 @@ def s_to_pkp(s, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, 
 
 
 
-def pkp_to_s(pk_pars, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
+def pkp_to_s(pk_pars, hct, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
    
-    c_compa, c_t, pk_pars_all = pk_model.conc(pk_pars) 
-    
-    p_compa = {
-        'b': pk_pars_all['vb'],
-        'e': pk_pars_all['ve'],
-        'i': pk_pars_all['vi']
-        }
+    c_t, C_cp, C_e = pk_model.conc(**pk_pars)     
+    v_compa = pkp_to_v(pk_pars, hct)    
+    c_compa = { 'b': C_cp / v_compa['b'],
+                'e': C_e / v_compa['e'],
+                'i': np.zeros(C_e.shape) }
+    p_compa = v_compa
        
     r0_extravasc = relax.relaxation(
         r_1 = (r0_tissue.r_1-p_compa['b']*r0_blood.r_1)/(1-p_compa['b']),
@@ -138,3 +137,20 @@ def pkp_to_s(pk_pars, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_
     s = water_ex_model.r_compa_to_s(s0, p_compa, r_compa, signal_model, k)
     
     return s
+
+def pkp_to_v(pk_pars, hct):
+    if 'vp' in pk_pars:
+        vb = pk_pars['vp'] / (1 - hct)
+    else:
+        vb = 0
+    
+    if 've' in pk_pars:
+        ve = pk_pars['ve']
+    else:
+        ve = 1 - vb
+    
+    vi = 1 - vb - ve
+    v = {'vb': vb, 've': ve, 'vi': vi}
+    return v
+    
+    
