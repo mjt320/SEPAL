@@ -1,5 +1,5 @@
 # Python code for fitting DCE-MRI data
-Note: this repository is a work-in-progress, un-tested and not recommended for general use.
+Note: this repository is a work-in-progress, un-tested and not recommended for use.
 
 ### Functionality:
 - Signal-to-concentration
@@ -18,7 +18,7 @@ Note: this repository is a work-in-progress, un-tested and not recommended for g
 - Non-linear relaxivity models add by inheriting c_to_r_model class)
 - Other population AIFs (add by inheriting aif class)
 - Other water exchange models, e.g. 3S2X, 2S1X (add by inheriting water_ex_model class)
-- Signal models for other sequences add by inheriting signal_model class)
+- Signal models for other sequences (add by inheriting signal_model class)
 - Model constraints
 - Time-shifting AIFs
 - Fitting a time delay
@@ -27,11 +27,13 @@ Note: this repository is a work-in-progress, un-tested and not recommended for g
 - Finding global minimum
 - "Special" implementations, e.g. linear(ised) pharmacokinetic models
 
-### TODO (short-term):
+### To do list (short-term):
+- fit enhancement not signal(?)
+- aif shifts (to allow pre-contrast data points in sims)
+- normalise y fitting variable
 - create demo notebooks
-- add more PK models
 - finish T1 fitting
-- multiple starts for fitting
+- search for global minimum
 - optimise tolerances, iterations etc.
 - documentation and comments
 - exceptions
