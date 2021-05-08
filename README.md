@@ -2,10 +2,10 @@
 Note: this repository is a work-in-progress, un-tested and not recommended for use.
 
 ### Functionality:
-- Signal-to-concentration
+- Enhancement-to-concentration conversion
 - Fit concentration using pharmacokinetic model
-- Fit signal using pharmacokinetic model
-- Pharmacokinetic models: steady-state, Patlak
+- Fit enhancement using pharmacokinetic model
+- Pharmacokinetic models: steady-state, Patlak, extended Tofts, Tofts, 2CXM, 2CUM
 - Individual and Parker AIFs
 - Linear relaxivity model
 - SPGR signal model
@@ -25,7 +25,7 @@ Note: this repository is a work-in-progress, un-tested and not recommended for u
 - Fitting water exchange parameters
 - Raising exceptions e.g. for non-physical values
 - Finding global minimum
-- "Special" implementations, e.g. linear(ised) pharmacokinetic models
+- Special model implementations, e.g. linear(ised) versions
 
 ### To do list (short-term):
 - finish T1 fitting
