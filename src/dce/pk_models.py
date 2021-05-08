@@ -39,11 +39,13 @@ class pk_model(ABC):
 
     def conc(self, *pk_pars, **pk_pars_kw):        
 
-        h_cp, h_e = self.irf(*pk_pars, **pk_pars_kw)
+        irf_cp, irf_e = self.irf(*pk_pars, **pk_pars_kw)
+        irf_cp[0] /= 2.
+        irf_e[0] /= 2.
     
         # Do the convolutions, taking only results in the required range    
-        C_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, h_cp , mode='full')[:self.n_interp]
-        C_e_interp  = self.dt_interp * np.convolve(self.c_ap_interp, h_e  , mode='full')[:self.n_interp]
+        C_cp_interp = self.dt_interp * np.convolve(self.c_ap_interp, irf_cp , mode='full')[:self.n_interp]
+        C_e_interp  = self.dt_interp * np.convolve(self.c_ap_interp, irf_e  , mode='full')[:self.n_interp]
         
         # Resample concentrations at the measured time points
         C_cp = np.interp(self.t, self.t_interp, C_cp_interp)
@@ -75,7 +77,7 @@ class steady_state_vp(pk_model):
 
         #calculate irf for capillary plasma (delta function centred at time zero)
         irf_cp = np.zeros(self.n_interp, dtype=float)
-        irf_cp[0] = vp / self.dt_interp
+        irf_cp[0] = 2. * vp / self.dt_interp
 
         #calculate irf for the EES (constant term)
         irf_e = np.zeros(self.n_interp, dtype=float)
@@ -94,11 +96,10 @@ class patlak(pk_model):
 
         #calculate irf for capillary plasma (delta function centred at time zero)
         irf_cp = np.zeros(self.n_interp, dtype=float)
-        irf_cp[0] = vp / self.dt_interp
+        irf_cp[0] = 2. * vp / self.dt_interp
 
         #calculate irf for the EES (constant term)
         irf_e = np.ones(self.n_interp, dtype=float) * (1./60.) * ps
-        irf_e[0] = irf_e[0]/2.
         
         return irf_cp, irf_e
 
@@ -112,11 +113,33 @@ class extended_tofts(pk_model):
         
         #calculate irf for capillary plasma (delta function centred at time zero)
         irf_cp = np.zeros(self.n_interp, dtype=float)
-        irf_cp[0] = vp / self.dt_interp
+        irf_cp[0] = 2. * vp / self.dt_interp
 
         #calculate irf for the EES
         irf_e = (1./60.) * ps * np.exp(-(self.t_interp * ps)/(60. * ve) )
-        irf_e[0] = irf_e[0]/2.
+        
+        return irf_cp, irf_e
+
+class tcum(pk_model):
+    
+    PARAMETER_NAMES = ('vp', 'ps', 'fp')
+    DEFAULT_TYPICAL_PARS = np.array([0.1, 1e-3, 20.])
+    DEFAULT_CONSTRAINTS = ()
+    
+    def irf(self, vp, ps, fp, **kwargs):
+
+        fp_per_s = fp / (60. * 100.)
+        ps_per_s = ps / 60.
+        
+
+        tp = vp / (fp_per_s + ps_per_s)
+        ktrans = ps_per_s / ( 1 + ps_per_s/fp_per_s )
+        
+        #calculate irf for capillary plasma
+        irf_cp = fp_per_s * np.exp(-self.t_interp/tp)
+
+        #calculate irf for the EES (constant term)
+        irf_e = ktrans * ( 1 - np.exp(-self.t_interp/tp) )
         
         return irf_cp, irf_e
 
@@ -141,12 +164,10 @@ class tcxm(pk_model):
         irf_cp = vp * sig_p * sig_n * \
             ( (1 - te*sig_n) * np.exp(-self.t_interp*sig_n) + (te*sig_p - 1.) * np.exp(-self.t_interp*sig_p) ) \
                 / ( sig_p - sig_n )
-        irf_cp[0] /= 2.
 
         #calculate irf for the EES (constant term)
         irf_e = ve * sig_p * sig_n * ( np.exp(-self.t_interp*sig_n) - np.exp(-self.t_interp*sig_p) ) \
             / ( sig_p - sig_n )
-        irf_e[0] /= 2.
         
         return irf_cp, irf_e
     
@@ -158,11 +179,13 @@ class tofts(pk_model):
     
     def irf(self, ktrans, ve, **kwargs):
         
+        ktrans_per_s = ktrans / 60.
+        
         #calculate irf for capillary plasma (zeros)
         irf_cp = np.zeros(self.n_interp, dtype=float)
         
         #calculate irf for the EES
-        irf_e = ktrans * np.exp(-self.t_interp * ktrans/ve)
+        irf_e = ktrans_per_s * np.exp(-self.t_interp * ktrans_per_s/ve)
         
         return irf_cp, irf_e
     

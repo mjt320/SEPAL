@@ -37,16 +37,17 @@ class parker_like(aif):
                  t1 = 0.17046, t2 = 0.365,
                  sigma1 = 0.0563, sigma2 = 0.132,
                  s = 38.078, tau = 0.483,
-                 alpha = 0, beta = 0, alpha2 = 1.050, beta2 = 0.1685):
+                 alpha = 0, beta = 0, alpha2 = 1.050, beta2 = 0.1685, t_start = 0):
         self.a1, self.a2, self.t1, self.t2 = a1, a2, t1, t2
         self.sigma1, self.sigma2 = sigma1, sigma2
         self.s, self.tau = s, tau
         self.alpha, self.alpha2, self.beta, self.beta2 = alpha, alpha2, beta, beta2
         self.hct = hct
+        self.t_start = t_start
     
     def c_ap(self, t):
         
-        t_mins = t/60.
+        t_mins = (t - self.t_start) / 60.
         
         c_ab = (self.a1 / (self.sigma1*np.sqrt(2.*np.pi))) * np.exp(-((t_mins-self.t1)**2)/(2.*self.sigma1**2)) + \
             (self.a2 / (self.sigma2*np.sqrt(2.*np.pi))) * np.exp(-((t_mins-self.t2)**2)/(2.*self.sigma2**2)) + \
@@ -54,9 +55,11 @@ class parker_like(aif):
         
         c_ap = c_ab / (1 - self.hct)
         
+        c_ap[ t < self.t_start ] = 0.
+        
         return c_ap
     
 
 class parker(parker_like):    
-    def __init__(self, hct):
-        super().__init__(hct)
+    def __init__(self, hct, t_start = 0):
+        super().__init__(hct, t_start = t_start)
