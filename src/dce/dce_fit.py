@@ -185,8 +185,6 @@ def sig_to_pkp(s, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_
     return pk_pars_opt, s0_opt, s_fit
 
 
-
-
 def pkp_to_sig(pk_pars, hct, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
    
     C_t, C_cp, C_e = pk_model.conc(**pk_pars)     

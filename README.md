@@ -26,12 +26,12 @@ Note: this repository is a work-in-progress, un-tested and not recommended for u
 - Raising exceptions e.g. for non-physical values
 - Finding global minimum
 - Special model implementations, e.g. linear(ised) versions
+- Generalise T1 fitting code to use other methods than VFA, e.g. IR, DESPOT1-HIFI
 
 ### To do list (short-term):
-- finish T1 fitting
-- finish demo notebooks
-- testing
+- test non-patlak dce fitting
 - find global minimum
+- finish demo notebooks (water_ex, signal_models, relax)
 - optimise tolerances, iterations etc.
 - docstrings and comments
 - exceptions
