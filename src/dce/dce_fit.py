@@ -39,8 +39,7 @@ def conc_to_pkp(C_t, pk_model, fit_opts = None):
     if 't_mask' not in fit_opts:
         fit_opts['t_mask'] = np.ones(C_t.shape)
         
-    # list of variable parameters = s0 + variable PK parameters
-    x_0 = pk_model.pkp_array(fit_opts['pk_pars_0'])
+    x_0 = pk_model.pkp_array(fit_opts['pk_pars_0']) # get starting values as array
     x_scalefactor = pk_model.typical_pars
     x_0_norm = x_0 / x_scalefactor    
     

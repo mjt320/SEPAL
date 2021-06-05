@@ -24,11 +24,14 @@ class pk_model(ABC):
     DEFAULT_TYPICAL_PARS = None
     DEFAULT_CONSTRAINTS = None
 
-    def __init__(self, t, dt_interp_request, aif):
+    def __init__(self, t, aif, dt_interp_request = None):
+        
         self.t = t        
         self.aif = aif
         
         #interpolate time points and AIF
+        if dt_interp_request is None:
+            dt_interp_request = self.t[1] - self.t[0]
         self.dt_interp, self.t_interp = interpolate_time_series(dt_interp_request, t)
         self.c_ap_interp = aif.c_ap(self.t_interp)
         self.n_interp = self.t_interp.size
@@ -69,7 +72,7 @@ class pk_model(ABC):
 
 class steady_state_vp(pk_model):
     
-    PARAMETER_NAMES = ('vp')
+    PARAMETER_NAMES = ('vp',)
     DEFAULT_TYPICAL_PARS = np.array([ 0.1 ])
     DEFAULT_CONSTRAINTS = ()
     
