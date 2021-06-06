@@ -12,6 +12,7 @@ PURPOSE: Module containin pharmacokinetic models.
 from abc import ABC, abstractmethod
 
 import numpy as np
+from scipy.optimize import NonlinearConstraint, LinearConstraint
 
 from dce import aifs
 
@@ -21,7 +22,7 @@ class pk_model(ABC):
     # used to return concentrations for specified PK parameters
     
     PARAMETERS = None
-    DEFAULT_TYPICAL_PARS = None
+    TYPICAL_VALS = None
     DEFAULT_CONSTRAINTS = None
 
     def __init__(self, t, aif, dt_interp_request = None):
@@ -37,7 +38,7 @@ class pk_model(ABC):
         self.n_interp = self.t_interp.size
         self.n = self.t.size
         
-        self.typical_pars = type(self).DEFAULT_TYPICAL_PARS
+        self.typical_vals = type(self).TYPICAL_VALS
         self.constraints = type(self).DEFAULT_CONSTRAINTS
 
     def conc(self, *pk_pars, **pk_pars_kw):        
@@ -73,7 +74,7 @@ class pk_model(ABC):
 class steady_state_vp(pk_model):
     
     PARAMETER_NAMES = ('vp',)
-    DEFAULT_TYPICAL_PARS = np.array([ 0.1 ])
+    TYPICAL_VALS = np.array([ 0.1 ])
     DEFAULT_CONSTRAINTS = ()
     
     def irf(self, vp, **kwargs):
@@ -91,7 +92,7 @@ class patlak(pk_model):
     #Patlak model subclass
     
     PARAMETER_NAMES = ('vp', 'ps')
-    DEFAULT_TYPICAL_PARS = np.array([ 0.1, 1.e-3])
+    TYPICAL_VALS = np.array([ 0.1, 1.e-3])
     DEFAULT_CONSTRAINTS = ()
 
        
@@ -109,7 +110,7 @@ class patlak(pk_model):
 class extended_tofts(pk_model):
     
     PARAMETER_NAMES = ('vp', 'ps', 've')
-    DEFAULT_TYPICAL_PARS = np.array([0.1, 1e-3, 0.2])
+    TYPICAL_VALS = np.array([0.1, 1e-3, 0.2])
     DEFAULT_CONSTRAINTS = ()
     
     def irf(self, vp, ps, ve, **kwargs):
@@ -126,7 +127,7 @@ class extended_tofts(pk_model):
 class tcum(pk_model):
     
     PARAMETER_NAMES = ('vp', 'ps', 'fp')
-    DEFAULT_TYPICAL_PARS = np.array([0.1, 1e-3, 20.])
+    TYPICAL_VALS = np.array([0.1, 1e-3, 20.])
     DEFAULT_CONSTRAINTS = ()
     
     def irf(self, vp, ps, fp, **kwargs):
@@ -149,8 +150,15 @@ class tcum(pk_model):
 class tcxm(pk_model):
     
     PARAMETER_NAMES = ('vp', 'ps', 've', 'fp')
-    DEFAULT_TYPICAL_PARS = np.array([0.1, 1e-3, 0.2, 20.])
-    DEFAULT_CONSTRAINTS = ()
+    TYPICAL_VALS = np.array([0.1, 1e-3, 0.2, 20.])
+    DEFAULT_CONSTRAINTS = [ NonlinearConstraint(lambda x: np.abs(x[1]), 1e-8, np.inf, keep_feasible=True), # ps can be negative but not zero
+                           LinearConstraint(TYPICAL_VALS * np.array(
+                                            [[1, 0, 1, 0], # 0 < vp + ve <= 1
+                                             [1, 0, 0, 0], # 0 < vp <= 1
+                                             [0, 0, 1, 0], # 0 < ve <= 1
+                                             [0, 0, 0, 1]]), # 0 < Fp < inf
+                                             [1e-8, 1e-8, 1e-8, 1e-8],
+                                             np.array([1, 1, 1, np.inf]), keep_feasible=True) ]
     
     def irf(self, vp, ps, ve, fp, **kwargs):
 
@@ -177,7 +185,7 @@ class tcxm(pk_model):
 class tofts(pk_model):
     
     PARAMETER_NAMES = ('ktrans', 've')
-    DEFAULT_TYPICAL_PARS = np.array([1e-2, 0.2])
+    TYPICAL_VALS = np.array([1e-2, 0.2])
     DEFAULT_CONSTRAINTS = ()
     
     def irf(self, ktrans, ve, **kwargs):

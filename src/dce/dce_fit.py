@@ -6,7 +6,7 @@ Created on Sat Oct 31 09:03:05 2020
 """
 
 import numpy as np
-from scipy.optimize import root, minimize
+from scipy.optimize import root, minimize, basinhopping
 
 from dce import relax
 
@@ -40,7 +40,7 @@ def conc_to_pkp(C_t, pk_model, fit_opts = None):
         fit_opts['t_mask'] = np.ones(C_t.shape)
         
     x_0 = pk_model.pkp_array(fit_opts['pk_pars_0']) # get starting values as array
-    x_scalefactor = pk_model.typical_pars
+    x_scalefactor = pk_model.typical_vals
     x_0_norm = x_0 / x_scalefactor    
     
     #define function to minimise
@@ -52,7 +52,10 @@ def conc_to_pkp(C_t, pk_model, fit_opts = None):
     
     #perform fitting
     result = minimize(cost, x_0_norm, args=None,
-             method='trust-constr', bounds=None, constraints=pk_model.constraints)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
+               bounds=None, constraints=pk_model.constraints)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
+
+    # result = basinhopping(cost, x_0_norm, niter=100, T=1.0, stepsize=0.5, 
+                           # minimizer_kwargs = dict(method='trust-constr', bounds=None, constraints=pk_model.constraints))
 
     x_opt = result.x * x_scalefactor
     pk_pars_opt = pk_model.pkp_dict(x_opt)
