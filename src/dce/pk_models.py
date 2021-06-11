@@ -39,6 +39,7 @@ class pk_model(ABC):
         self.n = self.t.size
         
         self.typical_vals = type(self).TYPICAL_VALS
+        self.bounds = type(self).DEFAULT_BOUNDS
         self.constraints = type(self).DEFAULT_CONSTRAINTS
 
     def conc(self, *pk_pars, **pk_pars_kw):        
@@ -148,17 +149,32 @@ class tcum(pk_model):
         return irf_cp, irf_e
 
 class tcxm(pk_model):
-    
     PARAMETER_NAMES = ('vp', 'ps', 've', 'fp')
-    TYPICAL_VALS = np.array([0.1, 1e-3, 0.2, 20.])
-    DEFAULT_CONSTRAINTS = [ NonlinearConstraint(lambda x: np.abs(x[1]), 1e-8, np.inf, keep_feasible=True), # ps can be negative but not zero
-                           LinearConstraint(TYPICAL_VALS * np.array(
+    TYPICAL_VALS = np.array([0.5, 0.05, 0.5, 100.])
+    # DEFAULT_BOUNDS = (np.array([[1e-7, 1], [-1e-4, 1e-1], [1e-7, 1], [1e-7, 200]]).transpose() / TYPICAL_VALS).transpose()
+    DEFAULT_BOUNDS = None
+    # DEFAULT_CONSTRAINTS = None
+    # DEFAULT_CONSTRAINTS = [
+    #     {'type': 'ineq', 'fun': lambda x: 1. - tcxm.TYPICAL_VALS[0]*x[0] - tcxm.TYPICAL_VALS[2]*x[2]},
+    #     {'type': 'ineq', 'fun': lambda x: np.abs(x[1]) - 1e-7}
+    #     ]
+    
+    DEFAULT_CONSTRAINTS = [ #NonlinearConstraint(lambda x: np.abs(x[1]), 1e-8, np.inf, keep_feasible=True), # ps can be negative but not zero
+                            LinearConstraint(TYPICAL_VALS * np.array(
                                             [[1, 0, 1, 0], # 0 < vp + ve <= 1
-                                             [1, 0, 0, 0], # 0 < vp <= 1
-                                             [0, 0, 1, 0], # 0 < ve <= 1
-                                             [0, 0, 0, 1]]), # 0 < Fp < inf
-                                             [1e-8, 1e-8, 1e-8, 1e-8],
-                                             np.array([1, 1, 1, np.inf]), keep_feasible=True) ]
+                                              [1, 0, 0, 0], # 0 < vp <= 1
+                                              [0, 1, 0, 0], # -1e-3 < ps <= 1
+                                              [0, 0, 1, 0], # 0 < ve <= 1
+                                              [0, 0, 0, 1]]), # 0 < Fp < inf
+                                              [1e-8, 1e-8, -1e-3, 1e-8, 1e-8],
+                                              np.array([1, 1, 1, 1, 200]), keep_feasible=True) ]
+
+    # DEFAULT_CONSTRAINTS = [ #NonlinearConstraint(lambda x: np.abs(x[1]), 1e-8, np.inf, keep_feasible=True), # ps can be negative but not zero
+    #                         LinearConstraint(TYPICAL_VALS * np.array(
+    #                                         [[1, 0, 1, 0]]) # 0 < vp + ve <= 1
+    #                                           [1e-8],
+    #                                           np.array([1]), keep_feasible=True) ]
+
     
     def irf(self, vp, ps, ve, fp, **kwargs):
 

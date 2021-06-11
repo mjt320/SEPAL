@@ -12,7 +12,7 @@ Note: this repository is a work-in-progress, un-tested and not recommended for u
 - Water exchange models: FXL, NXL, NXL_be
 
 ### Not yet implemented/limitations:
-- Untested!
+- Generally untested!
 - Other pharmacokinetic models (add by inheriting pk_model class)
 - Non-linear relaxivity models add by inheriting c_to_r_model class)
 - Other population AIFs (add by inheriting aif class)
@@ -27,11 +27,11 @@ Note: this repository is a work-in-progress, un-tested and not recommended for u
 - Finding global minimum
 - Special model implementations, e.g. linear(ised) versions
 - Generalise T1 fitting code to use other methods than VFA, e.g. IR, DESPOT1-HIFI
+- Find global minimum
 
 ### To do list (short-term):
-- find global minimum
 - test non-patlak dce fitting of signal
-- finish demo notebooks (water_ex, signal_models, relax)
 - optimise tolerances, iterations etc.
+- finish demo notebooks (water_ex, signal_models, relax)
 - docstrings and comments
 
