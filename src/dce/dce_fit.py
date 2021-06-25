@@ -35,40 +35,43 @@ def conc_to_enh(c, k, r0, c_to_r_model, signal_model):
     e = 100. * ((s_post - s_pre) / s_pre)
     return e
 
-def conc_to_pkp(C_t, pk_model, fit_opts = None):
-    if 't_mask' not in fit_opts:
-        fit_opts['t_mask'] = np.ones(C_t.shape)
+def conc_to_pkp(C_t, pk_model, pk_pars_0 = None, weights = None):
+    if pk_pars_0 is None:
+        pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
+    if weights is None:
+        weights = np.ones(C_t.shape)
+
         
-    x_0 = pk_model.pkp_array(fit_opts['pk_pars_0']) # get starting values as array
+    x_0_all = [pk_model.pkp_array(pars)  # get starting values as array
+           for pars in pk_pars_0]
     x_scalefactor = pk_model.typical_vals
-    x_0_norm = x_0 / x_scalefactor    
+    x_0_norm_all = [x_0 / x_scalefactor for x_0 in x_0_all]
     
     #define function to minimise
     def cost(x_norm, *args):
         x = x_norm * x_scalefactor
         C_t_try, _C_cp, _C_e = pk_model.conc(*x)
-        ssq = np.sum(fit_opts['t_mask']*((C_t_try - C_t)**2))    
+        ssq = np.sum(weights * ((C_t_try - C_t)**2))
         return ssq
     
     #perform fitting
-    result = minimize(cost, x_0_norm, args=None,
+    result = minimize_global(cost, x_0_norm_all, args=None,
               bounds=None, constraints=pk_model.constraints, method='trust-constr')
-
-    # result = minimize(cost, x_0_norm, args=None,
-              # bounds=None) #method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
-
-
-    # result = basinhopping(cost, x_0_norm, niter=100, T=1.0, stepsize=0.5, 
-                           # minimizer_kwargs = dict(method='trust-constr', bounds=None, constraints=pk_model.constraints))
-
-    # result = shgo(cost, pk_model.bounds, constraints=pk_model.constraints, sampling_method='sobol', minimizer_kwargs={'method': 'SLSQP'})
 
     x_opt = result.x * x_scalefactor
     pk_pars_opt = pk_model.pkp_dict(x_opt)
     C_fit, _C_cp, _C_e = pk_model.conc(*x_opt)
-    C_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
+    C_fit[weights == 0] = np.nan
     
     return pk_pars_opt, C_fit
+
+def minimize_global(cost, x_0_all, **kwargs):
+    results = [minimize(cost, x_0, **kwargs) for x_0 in x_0_all]
+    costs = [result.fun for result in results]
+    cost = min(costs)
+    idx = costs.index(cost)
+    result = results[idx]
+    return result
 
 def pkp_to_vol(pk_pars, hct):
     # if vp exists, calculate vb, otherwise set vb to zero
