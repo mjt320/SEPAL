@@ -39,7 +39,6 @@ def conc_to_pkp(C_t, pk_model, pk_pars_0 = None, weights = None):
         pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
     if weights is None:
         weights = np.ones(C_t.shape)
-
         
     x_0_all = [pk_model.pkp_array(pars)  # get starting values as array
            for pars in pk_pars_0]
@@ -95,15 +94,9 @@ def enh_to_pkp(enh, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_e
     
     return pk_pars_opt, enh_fit
 
-def minimize_global(cost, x_0_all, **kwargs):
-    results = [minimize(cost, x_0, **kwargs) for x_0 in x_0_all]
-    costs = [result.fun for result in results]
-    cost = min(costs)
-    idx = costs.index(cost)
-    result = results[idx]
-    return result
 
-def pkp_to_vol(pk_pars, hct):
+
+def volume_fractions(pk_pars, hct):
     # if vp exists, calculate vb, otherwise set vb to zero
     if 'vp' in pk_pars:
         vb = pk_pars['vp'] / (1 - hct)
@@ -126,7 +119,7 @@ def pkp_to_vol(pk_pars, hct):
 def pkp_to_enh(pk_pars, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
    
     C_t, C_cp, C_e = pk_model.conc(**pk_pars)     
-    v = pkp_to_vol(pk_pars, hct)    
+    v = volume_fractions(pk_pars, hct)    
     c = { 'b': C_cp / v['b'],
          'e': C_e / v['e'],
          'i': np.zeros(C_e.shape) }
@@ -152,66 +145,15 @@ def pkp_to_enh(pk_pars, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, wat
     
     return enh
 
-def sig_to_pkp(s, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model, fit_opts=None):
-
-    if 't_mask' not in fit_opts:
-        fit_opts['t_mask'] = np.ones(s.shape)
-
-    # estimate s0, scale parameters
-    s0_0 = s[0] / signal_model.signal(1., r0_tissue)
-    
-    # list of variable parameters = s0 + variable PK parameters
-    x_0 = np.array( [ s0_0, *pk_model.pkp_array(fit_opts['pk_pars_0']) ] )
-
-    x_scalefactor = np.array( [ s0_0, *pk_model.typical_pars ] )
-    
-    x_0_norm = x_0 / x_scalefactor    
-    #TODO: implement bounds and constraints
-    #x_lb_norm = pkp_to_x(proc.fit_opts['pk_pars_lb'], s0_0*0.5, proc.irf_model) / x_sf
-    #x_ub_norm = pkp_to_x(proc.fit_opts['pk_pars_ub'], s0_0*1.5, proc.irf_model) / x_sf
-    #bounds = list(zip(x_lb_norm, x_ub_norm))   
-    
-    #define function to minimise
-    def cost(x_norm, *args):
-        x = x_norm * x_scalefactor
-        s0_try = x[0]
-        pk_pars_try = pk_model.pkp_dict(x[1:])
-        s_try = pkp_to_sig(pk_pars_try, hct, s0_try, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
-        ssq = np.sum(fit_opts['t_mask']*((s_try - s)**2))    
-        return ssq
-    
-    #perform fitting
-    result = minimize(cost, x_0_norm, args=None,
-             method='trust-constr', bounds=None, constraints=pk_model.constraints)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
-
-    x_opt = result.x * x_scalefactor
-    s0_opt = x_opt[0]
-    pk_pars_opt = pk_model.pkp_dict(x_opt[1:])
-
-    s_fit = pkp_to_sig(pk_pars_opt, hct, s0_opt, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
-    s_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
-    
-    return pk_pars_opt, s0_opt, s_fit
 
 
-def pkp_to_sig(pk_pars, hct, s0, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
-   
-    C_t, C_cp, C_e = pk_model.conc(**pk_pars)     
-    v = pkp_to_vol(pk_pars, hct)    
-    c = { 'b': C_cp / v['b'],
-         'e': C_e / v['e'],
-         'i': np.zeros(C_e.shape) }
-    p = v
-       
-    r0_extravasc = relax.relaxation(
-        r_1 = (r0_tissue.r_1-p['b']*r0_blood.r_1)/(1-p['b']),
-        r_2s = r0_tissue.r_2s )
-    
-    r0 = { 'b': r0_blood,
-           'e': r0_extravasc,
-           'i': r0_extravasc }
-   
-    r = c_to_r_model.r_compa(r0, c)        
-    s = water_ex_model.r_to_s(s0, p, r, signal_model, k)
-    
-    return s
+
+
+# HELPERS
+def minimize_global(cost, x_0_all, **kwargs):
+    results = [minimize(cost, x_0, **kwargs) for x_0 in x_0_all]
+    costs = [result.fun for result in results]
+    cost = min(costs)
+    idx = costs.index(cost)
+    result = results[idx]
+    return result

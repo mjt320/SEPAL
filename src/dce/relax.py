@@ -38,13 +38,13 @@ class c_to_r_model(ABC):
         # input: r_0 = dict of relaxatations, c_compa = dict of concentrations
         # output: r_compa = dict of relaxations
         r_compa = {
-            compartment: self.r_single(r0_compa[compartment], c)
+            compartment: self.r(r0_compa[compartment], c)
             for (compartment, c) in c_compa.items()
             }
         return r_compa
     
     @abstractmethod
-    def r_single(self, r0, c):
+    def r(self, r0, c):
         # input: r_0 = initial relaxation, c = 1D array of concentrations
         # output: r = relaxation
         pass
@@ -52,7 +52,7 @@ class c_to_r_model(ABC):
 
 class c_to_r_linear(c_to_r_model):
     
-    def r_single(self, r0, c):
+    def r(self, r0, c):
         r = relaxation(r_1 = r0.r_1 + self.rlxy.r_1 * c,
                        r_2s = r0.r_2s + self.rlxy.r_2s * c)
         return r
