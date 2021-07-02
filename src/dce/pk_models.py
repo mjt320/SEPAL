@@ -23,7 +23,7 @@ class pk_model(ABC):
     
     PARAMETERS = None
     TYPICAL_VALS = None
-    DEFAULT_CONSTRAINTS = None
+    CONSTRAINTS = None
 
     def __init__(self, t, aif, dt_interp_request = None):
         
@@ -39,7 +39,7 @@ class pk_model(ABC):
         self.n = self.t.size
         
         self.typical_vals = type(self).TYPICAL_VALS
-        self.constraints = type(self).DEFAULT_CONSTRAINTS
+        self.constraints = type(self).CONSTRAINTS
 
     def conc(self, *pk_pars, **pk_pars_kw):        
 
@@ -75,7 +75,11 @@ class steady_state_vp(pk_model):
     
     PARAMETER_NAMES = ('vp',)
     TYPICAL_VALS = np.array([ 0.1 ])
-    DEFAULT_CONSTRAINTS = ()
+    CONSTRAINTS = [LinearConstraint(TYPICAL_VALS * np.array(
+        [[1]]),  # 0 < vp <= 1
+         np.array([1e-8]),
+         np.array([1]),
+         keep_feasible=True)]
     
     def irf(self, vp, **kwargs):
 
@@ -93,7 +97,12 @@ class patlak(pk_model):
     
     PARAMETER_NAMES = ('vp', 'ps')
     TYPICAL_VALS = np.array([ 0.1, 1.e-3])
-    DEFAULT_CONSTRAINTS = ()
+    CONSTRAINTS = [LinearConstraint(TYPICAL_VALS * np.array(
+        [[1, 0],  # 0 < vp <= 1
+         [0, 1]]),  # -1e-3 < ps <= 1
+         np.array([1e-8, -1e-3]),
+         np.array([1, 1]),
+         keep_feasible=True)]
 
        
     def irf(self, vp, ps, **kwargs):
@@ -111,7 +120,14 @@ class extended_tofts(pk_model):
     
     PARAMETER_NAMES = ('vp', 'ps', 've')
     TYPICAL_VALS = np.array([0.1, 1e-3, 0.2])
-    DEFAULT_CONSTRAINTS = ()
+    CONSTRAINTS = [LinearConstraint(TYPICAL_VALS * np.array(
+                                            [[1, 0, 0],  # 0 < vp <= 1
+                                             [0, 1, 0],  # -1e-3 < ps <= 1
+                                             [1, 0, 1],  # 0 < vp + ve <= 1
+                                             [0, 0, 1]]),  # 0 < ve < 1
+                                            np.array([1e-8, -1e-3, 1e-8, 1e-8]),
+                                            np.array([1, 1, 1, 1]),
+                                            keep_feasible=True)]
     
     def irf(self, vp, ps, ve, **kwargs):
         
@@ -127,8 +143,14 @@ class extended_tofts(pk_model):
 class tcum(pk_model):
     
     PARAMETER_NAMES = ('vp', 'ps', 'fp')
-    TYPICAL_VALS = np.array([0.1, 1e-3, 20.])
-    DEFAULT_CONSTRAINTS = ()
+    TYPICAL_VALS = np.array([0.1, 0.05, 50.])
+    CONSTRAINTS = [LinearConstraint(TYPICAL_VALS * np.array(
+                                            [[1, 0, 0],  # 0 < vp <= 1
+                                             [0, 1, 0],  # -1e-3 < ps <= 1
+                                             [0, 0, 1]]),  # 0 < Fp < 200
+                                            np.array([1e-8, 1e-3, 1e-8]),
+                                            np.array([1, 1, 200]),
+                                            keep_feasible=True)]
     
     def irf(self, vp, ps, fp, **kwargs):
 
@@ -149,14 +171,14 @@ class tcum(pk_model):
 
 class tcxm(pk_model):
     PARAMETER_NAMES = ('vp', 'ps', 've', 'fp')
-    TYPICAL_VALS = np.array([0.1, 0.05, 0.5, 100.])
-    DEFAULT_CONSTRAINTS = [LinearConstraint(TYPICAL_VALS * np.array(
+    TYPICAL_VALS = np.array([0.1, 0.05, 0.5, 50.])
+    CONSTRAINTS = [LinearConstraint(TYPICAL_VALS * np.array(
                                             [[1, 0, 1, 0],  # 0 < vp + ve <= 1
                                              [1, 0, 0, 0],  # 0 < vp <= 1
                                              [0, 1, 0, 0],  # -1e-3 < ps <= 1
                                              [0, 0, 1, 0],  # 0 < ve <= 1
                                              [0, 0, 0, 1]]),  # 0 < Fp < 200
-                                            [1e-8, 1e-8, -1e-3, 1e-8, 1e-8],
+                                            np.array([1e-8, 1e-8, -1e-3, 1e-8, 1e-8]),
                                             np.array([1, 1, 1, 1, 200]),
                                             keep_feasible=True)]
     
@@ -186,7 +208,12 @@ class tofts(pk_model):
     
     PARAMETER_NAMES = ('ktrans', 've')
     TYPICAL_VALS = np.array([1e-2, 0.2])
-    DEFAULT_CONSTRAINTS = ()
+    CONSTRAINTS = [LinearConstraint(TYPICAL_VALS * np.array(
+                                            [[1, 0],  # -1e-3 < ktrans <= 1.0
+                                             [0, 0]]),  # 0 < ve < 1
+                                            np.array([1e-3, 0]),
+                                            np.array([1, 1]),
+                                            keep_feasible=True)]
     
     def irf(self, ktrans, ve, **kwargs):
         

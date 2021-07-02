@@ -10,7 +10,6 @@ from scipy.optimize import root, minimize, basinhopping, shgo
 
 from dce import relax
 
-
 def sig_to_enh(s, base_idx):
     s_pre = np.mean(s[base_idx])
     e = 100.*((s - s_pre)/s_pre)
@@ -65,6 +64,37 @@ def conc_to_pkp(C_t, pk_model, pk_pars_0 = None, weights = None):
     
     return pk_pars_opt, C_fit
 
+def enh_to_pkp(enh, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model, pk_pars_0 = None, weights = None):
+    
+    if pk_pars_0 is None:
+        pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
+    if weights is None:
+        weights = np.ones(enh.shape)
+        
+    x_0_all = [pk_model.pkp_array(pars)  # get starting values as array
+           for pars in pk_pars_0]
+    x_scalefactor = pk_model.typical_vals
+    x_0_norm_all = [x_0 / x_scalefactor for x_0 in x_0_all]
+    
+    #define function to minimise
+    def cost(x_norm, *args):
+        x = x_norm * x_scalefactor
+        pk_pars_try = pk_model.pkp_dict(x)
+        enh_try = pkp_to_enh(pk_pars_try, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
+        ssq = np.sum(weights * ((enh_try - enh)**2))    
+        return ssq
+    
+    #perform fitting
+    result = minimize_global(cost, x_0_norm_all, args=None,
+             bounds=None, constraints=pk_model.constraints, method='trust-constr')
+
+    x_opt = result.x * x_scalefactor
+    pk_pars_opt = pk_model.pkp_dict(x_opt)
+    enh_fit = pkp_to_enh(pk_pars_opt, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
+    enh_fit[weights == 0]=np.nan
+    
+    return pk_pars_opt, enh_fit
+
 def minimize_global(cost, x_0_all, **kwargs):
     results = [minimize(cost, x_0, **kwargs) for x_0 in x_0_all]
     costs = [result.fun for result in results]
@@ -91,42 +121,7 @@ def pkp_to_vol(pk_pars, hct):
     v = {'b': vb, 'e': ve, 'i': vi}
     return v
     
-def enh_to_pkp(enh, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model, fit_opts=None):
 
-    if 't_mask' not in fit_opts:
-        fit_opts['t_mask'] = np.ones(enh.shape)
-
-    
-    # list of variable parameters = s0 + variable PK parameters
-    x_0 = pk_model.pkp_array(fit_opts['pk_pars_0'])
-
-    x_scalefactor = pk_model.typical_pars
-    
-    x_0_norm = x_0 / x_scalefactor    
-    #TODO: implement bounds and constraints
-    #x_lb_norm = pkp_to_x(proc.fit_opts['pk_pars_lb'], s0_0*0.5, proc.irf_model) / x_sf
-    #x_ub_norm = pkp_to_x(proc.fit_opts['pk_pars_ub'], s0_0*1.5, proc.irf_model) / x_sf
-    #bounds = list(zip(x_lb_norm, x_ub_norm))   
-    
-    #define function to minimise
-    def cost(x_norm, *args):
-        x = x_norm * x_scalefactor
-        pk_pars_try = pk_model.pkp_dict(x)
-        enh_try = pkp_to_enh(pk_pars_try, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
-        ssq = np.sum(fit_opts['t_mask']*((enh_try - enh)**2))    
-        return ssq
-    
-    #perform fitting
-    result = minimize(cost, x_0_norm, args=None,
-             method='trust-constr', bounds=None, constraints=pk_model.constraints)#method='trust-constr', bounds=bounds, constraints=models.pkp_constraints[irf_model])
-
-    x_opt = result.x * x_scalefactor
-    pk_pars_opt = pk_model.pkp_dict(x_opt)
-
-    enh_fit = pkp_to_enh(pk_pars_opt, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
-    enh_fit[np.logical_not(fit_opts['t_mask'])]=np.nan
-    
-    return pk_pars_opt, enh_fit
 
 def pkp_to_enh(pk_pars, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
    
@@ -147,9 +142,12 @@ def pkp_to_enh(pk_pars, hct, k, r0_tissue, r0_blood, pk_model, c_to_r_model, wat
    
     r = c_to_r_model.r_compa(r0, c)
     
+    r_compo_0, p_compo_0 = water_ex_model.r_components(p, r0)
+    r_compo, p_compo = water_ex_model.r_components(p, r)
+    
     s_eq = 100.
-    s0 = water_ex_model.r_to_s(s_eq, p, r0, signal_model, k)
-    s = water_ex_model.r_to_s(s_eq, p, r, signal_model, k)
+    s0 = signal_model.r_to_s(s_eq, p_compo_0, r_compo_0, k)
+    s = signal_model.r_to_s(s_eq, p_compo, r_compo, k)
     enh = 100. * (s - s0) / s0
     
     return enh

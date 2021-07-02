@@ -18,15 +18,15 @@ class water_ex_model(ABC):
     def r_components(self, p, r):
         pass
     
-    def r_to_s(self, s0, p, r, signal_model, k=1.):
-    #Calculate the total signal based on relaxation components
-    #this is the p-weighted average signal over each relaxation component    
+    # def r_to_s(self, s0, p, r, signal_model, k=1.):
+    # #Calculate the total signal based on relaxation components
+    # #this is the p-weighted average signal over each relaxation component    
     
-        r_compo, p_compo = self.r_components(p, r)
+    #     r_compo, p_compo = self.r_components(p, r)
         
-        s = np.sum([ p * signal_model.signal(s0, r_compo[idx], k) for idx, p in enumerate(p_compo) ], 0)
+    #     s = np.sum([ p * signal_model.signal(s0, r_compo[idx], k) for idx, p in enumerate(p_compo) ], 0)
     
-        return s
+    #     return s
     
     
 class fxl(water_ex_model):

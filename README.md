@@ -30,8 +30,9 @@ Note: this repository is a work-in-progress, un-tested and not recommended for u
 - Find global minimum
 
 ### To do list (short-term):
-- test non-patlak dce fitting of signal
+- test non-patlak dce fitting of _signal_
 - optimise tolerances, iterations etc.
+- simplify r2* treatment
 - finish demo notebooks (water_ex, signal_models, relax)
 - docstrings and comments
 

@@ -13,7 +13,15 @@ class signal_model(ABC):
     # signal model. defined by acq parameters
     # used to return signal for specified s0 and relaxation parameters
     # should be vectorised
+    
+    def r_to_s(self, s0, p_compo, r_compo, k=1.):
+    #Calculate the total signal based on relaxation components
+    #this is the p-weighted average signal over each relaxation component    
         
+        s = np.sum([ p * self.signal(s0, r_compo[idx], k) for idx, p in enumerate(p_compo) ], 0)
+    
+        return s    
+    
     @abstractmethod
     def signal(self, s0, r, k):
         pass
