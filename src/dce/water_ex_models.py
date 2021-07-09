@@ -1,68 +1,97 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Mar  3 09:41:24 2021
+"""Water exchange models.
 
-@author: mthripp1
+Classes: water_ex_model and derived subclasses:
+    fxl
+    nxl
+    ntexl
 """
 
 from abc import ABC, abstractmethod
-import numpy as np
 
-from dce import signal_models, relax
 
 class water_ex_model(ABC):
-    # water exchange model.
-    # used to convert compartment pops and relaxation rates to exponential relaxation pops and values
+    """Abstract base class for water exchange models.
 
-    @abstractmethod        
-    def r_components(self, p, r):
+    Subclasses correspond to specific models (e.g. fast-exchange limit). The
+    main purpose of these classes is to estimate the exponential T1 relaxation
+    components for the tissue, dependent on the T1 relaxation rates in each
+    tissue compartment (blood, EES and intracellular). For example,
+    in the fast-exchange limit model, the result is a single T1 component,
+    while in the slow exchange limit, the result is 3 T1 components.
+
+    Methods
+    -------
+    R1_components(p, R1):
+        get the R1 relaxation rates and corresponding population fractions for
+        each exponential T1 component
+    """
+
+    @abstractmethod
+    def R1_components(self, p, R1):
+        """Get exponential T1 components.
+
+        Parameters
+        ----------
+        p : dict
+            Spin population fraction for each tissue compartment.
+            Example: p = {'b': 0.1, 'e': 0.4, 'i': 0.5}
+        R1 : dict
+            R1 relaxation rate (s^-1) for each tissue compartment.
+            Example: R1 = {'b': 0.6, 'e': 1.0, 'i': 1.0}
+
+        Returns
+        -------
+        R1 components : list
+            List of floats, corresponding to the R1 of each exponential
+            relaxation component. The number of items depends on the water
+            exchange model.
+        p_components: list
+            List of floats, corresponding to the spin population fractions of
+            each exponential relaxation component.
+        """
         pass
-    
-    # def r_to_s(self, s0, p, r, signal_model, k=1.):
-    # #Calculate the total signal based on relaxation components
-    # #this is the p-weighted average signal over each relaxation component    
-    
-    #     r_compo, p_compo = self.r_components(p, r)
-        
-    #     s = np.sum([ p * signal_model.signal(s0, r_compo[idx], k) for idx, p in enumerate(p_compo) ], 0)
-    
-    #     return s
-    
-    
-class fxl(water_ex_model):
-    
-    def r_components(self, p, r):
-        #r_compa is a dict of relaxations (1 per tissue compartment)
-        #p_compa is a dict of populations (1 per tissue compartment)
-        #r_compo is a list of relaxations, (1 per relaxation component)
-        #p_compo is a list of relaxations, (1 per relaxation component)
-        r_compo = [ relax.relaxation(
-            r_1 = np.sum( [ p[compartment]*r[compartment].r_1  for compartment in r.keys() ] ,0) ,
-            r_2s = np.sum( [ p[compartment]*r[compartment].r_2s for compartment in r.keys() ] ,0)
-            ) ]
 
-        p_compo = [ 1. ]
-        return r_compo, p_compo
-    
+
+class fxl(water_ex_model):
+    """Fast water exchange model.
+
+    Water exchange between all compartments is in the fast limit.
+    """
+
+    def R1_components(self, p, R1):
+        """Get R1 components for this model. Overrides superclass method."""
+        R1 = p['b']*R1['b'] + p['e']*R1['e'] + p['i']*R1['i']
+        R1_components = [R1]
+        p_components = [1.]
+        return R1_components, p_components
+
+
 class nxl(water_ex_model):
-    
-    def r_components(self, p, r):
-        r2s_mean = np.sum([p[compartment]*r[compartment].r_2s for compartment in r.keys()] ,0)
-        r_compo = [ relax.relaxation(r_1 = r['b'].r_1, r_2s = r2s_mean) ,
-                    relax.relaxation(r_1 = r['e'].r_1, r_2s = r2s_mean) ,
-                    relax.relaxation(r_1 = r['i'].r_1, r_2s = r2s_mean) ]
-        p_compo = [ p['b'], p['e'], p['i'] ]
-        return r_compo, p_compo
-    
+    """No-exchange limit water exchange model.
+
+    Water exchange between all compartments is in the slow limit.
+    """
+
+    def R1_components(self, p, R1):
+        """Get R1 components for this model. Overrides superclass method."""
+        R1_components = [R1['b'], R1['e'], R1['i']]
+        p_components = [p['b'], p['e'], p['i']]
+        return R1_components, p_components
+
+
 class ntexl(water_ex_model):
-    
-    def r_components(self, p, r):
-        r2s_mean = np.sum([p[compartment]*r[compartment].r_2s for compartment in r.keys()] ,0)
-       
+    """No-transendothelial water exchange limit model.
+
+    Water exchange between blood and EES compartments is in the slow limit.
+    The EES and intracellular compartments are in the fast-exchange limit and
+    behave as a single compartment.
+    """
+
+    def R1_components(self, p, R1):
+        """Get R1 components for this model. Overrides superclass method."""
         p_ev = p['e'] + p['i']
-        r1_ev = (p['e']*r['e'].r_1 + p['i']*r['i'].r_1) / p_ev
-        
-        r_compo = [ relax.relaxation(r['b'].r_1, r2s_mean) ,
-                    relax.relaxation(r1_ev, r2s_mean) ]
-        p_compo = [ p['b'], p_ev ]
-        return r_compo, p_compo
+        R1_ev = (p['e']*R1['e'] + p['i']*R1['i']) / p_ev
+
+        R1_components = [R1['b'], R1_ev]
+        p_components = [p['b'], p_ev]
+        return R1_components, p_components

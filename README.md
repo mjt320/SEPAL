@@ -19,7 +19,7 @@ Note: this repository is a work-in-progress, un-tested and not recommended for u
 - Other water exchange models, e.g. 3S2X, 2S1X (add by inheriting water_ex_model class)
 - Signal models for other sequences (add by inheriting signal_model class)
 - Model constraints
-- Simplified T2* effects - assumes all signal components decay with mean T2*
+- R2* effects not included
 - Compartment-specific relaxivity parameters/models
 - Fitting a time delay
 - Fitting water exchange parameters
@@ -30,9 +30,8 @@ Note: this repository is a work-in-progress, un-tested and not recommended for u
 - Find global minimum
 
 ### To do list (short-term):
-- test non-patlak dce fitting of _signal_
-- optimise tolerances, iterations etc.
-- simplify r2* treatment
-- finish demo notebooks (water_ex, signal_models, relax)
 - docstrings and comments
+- finish demo notebooks (water_ex, signal_models, relax)
+- optimise tolerances, iterations etc.
+
 
