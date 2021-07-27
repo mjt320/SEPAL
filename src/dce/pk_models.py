@@ -52,8 +52,9 @@ class pk_model(ABC):
         list of parameter names
     TYPICAL_VALS : np.ndarray
         default typical parameter values as 1D array (e.g. for scaling)
-    CONSTRAINTS : scipy.optimize.LinearConstraint
-        default constraints to use for model
+    CONSTRAINTS : list
+        list of scipy.optimize.LinearConstraint objects
+        default constraints to use for the pharmacokinetic model
 
     Methods
     -------

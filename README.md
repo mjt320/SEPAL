@@ -1,37 +1,35 @@
 # Python code for fitting DCE-MRI data
-Note: this repository is a work-in-progress, un-tested and not recommended for use.
+This repository contains code for simulating and fitting DCE-MRI data. It is primarily an exercise in writing code that is reasonably general, e.g. permits arbitrary combinations of sequence, pharmacokinetic model, water exchange model, etc.  
+This repository is a work-in-progress, has not been extensively tested and is not recommended or approved for use.
 
 ### Functionality:
-- Enhancement-to-concentration conversion
-- Fit concentration using pharmacokinetic model
-- Fit enhancement using pharmacokinetic model
+- Enhancement-to-concentration conversion (assuming fast water exchange)
+- Fit tissue concentration using pharmacokinetic model
+- Fit signal enhancement using pharmacokinetic model
 - Pharmacokinetic models: steady-state, Patlak, extended Tofts, Tofts, 2CXM, 2CUM
-- Individual and Parker AIFs
-- Linear relaxivity model
-- SPGR signal model
+- AIFs: patient-specific (measured), Parker, bi-exponential Parker
+- Relaxivity models: linear
+- Signal models: spoiled gradient echo
 - Water exchange models: FXL, NXL, NXL_be
+- T1 fitting using variable flip angle method
 
 ### Not yet implemented/limitations:
-- Generally untested!
-- Other pharmacokinetic models (add by inheriting pk_model class)
-- Non-linear relaxivity models add by inheriting c_to_r_model class)
-- Other population AIFs (add by inheriting aif class)
-- Other water exchange models, e.g. 3S2X, 2S1X (add by inheriting water_ex_model class)
-- Signal models for other sequences (add by inheriting signal_model class)
-- Model constraints
-- R2* effects not included
+- Generally untested. Not optimised for speed or robustness.
+- Additional pharmacokinetic models (add by inheriting from pk_model class)
+- Non-linear relaxivity models (add by inheriting from c_to_r_model class)
+- Additional AIF functions (add by inheriting from aif class)
+- Additional water exchange models, e.g. 3S2X, 2S1X (add by inheriting from water_ex_model class)
+- Additional signal models (add by inheriting from signal_model class)
+- R2/R2* effects not included in fitting of enhancement curves (but is included for enhancement -> concentration)
 - Compartment-specific relaxivity parameters/models
 - Fitting a time delay
 - Fitting water exchange parameters
 - Raising exceptions e.g. for non-physical values
-- Finding global minimum
-- Special model implementations, e.g. linear(ised) versions
-- Generalise T1 fitting code to use other methods than VFA, e.g. IR, DESPOT1-HIFI
-- Find global minimum
+- Special model implementations, e.g. linear(ised) versions of pharmacokinetic models.
+- Additional methods/generalised method for T1 fitting using other sequences
 
 ### To do list (short-term):
-- docstrings and comments
 - finish demo notebooks (water_ex, signal_models, relax)
-- optimise tolerances, iterations etc.
+- deal with minimise failures
 
 

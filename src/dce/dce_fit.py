@@ -178,7 +178,10 @@ def conc_to_pkp(C_t, pk_model, pk_pars_0=None, weights=None):
 
 def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
                water_ex_model, signal_model, pk_pars_0=None, weights=None):
-    """Fit signal time series to obtain pharamacokinetic parameters.
+    """Fit signal enhancement curve to obtain pharamacokinetic parameters.
+
+    Any combination of signal, pharmacokinetic, relaxivity and water exchange
+    models may be used.
 
     Assumptions:
         -R2 and R2* effects neglected.
@@ -197,85 +200,144 @@ def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
         Pre-contrast R1 relaxation rate for capillary blood (s^-1). Used to
         estimate R10 for each tissue compartment. AIF R10 value is typically
         used.
-    pk_model : TYPE
-        DESCRIPTION.
-    c_to_r_model : TYPE
-        DESCRIPTION.
-    water_ex_model : TYPE
-        DESCRIPTION.
-    signal_model : TYPE
-        DESCRIPTION.
-    pk_pars_0 : TYPE, optional
-        DESCRIPTION. The default is None.
-    weights : TYPE, optional
-        DESCRIPTION. The default is None.
+    pk_model : pk_model
+        Pharmacokinetic model used to predict tracer distribution.
+    c_to_r_model : c_to_r_model
+        Model describing the concentration-relaxation relationship.
+    water_ex_model : water_ex_model
+        Model to predict one or more exponential relaxation components given
+        the relaxation rates for each compartment and water exchange behaviour.
+    signal_model : signal_model
+        Model descriibing the relaxation-signal relationship.
+    pk_pars_0 : list, optional
+        List of dicts containing starting values of pharmacokinetic parameters.
+        If there are >1 dicts then the optimisation will be run multiple times
+        and the global minimum used.
+        Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
+        Defaults to values in pk_model.typical_vals.
+    weights : ndarray, optional
+        1D float array of weightings to use for sum-of-squares calculation.
+        Can be used to "exclude" data points from optimisation.
+        Defaults to equal weighting for all points.
 
     Returns
     -------
-    TYPE
-        DESCRIPTION.
+    tuple (pk_pars_opt, Ct_fit)
+        pk_pars_opt : dict of optimal pharmacokinetic parameters,
+            Example: {'vp': 0.1, 'ps': 1e-3, 've': 0.5}
+        enh_fit : 1D ndarray of floats containing best-fit tissue
+            enhancement-time series (%).
 
     """
-    if pk_pars_0 is None:
+    if pk_pars_0 is None:  # get default initial estimates if none provided
         pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
     if weights is None:
         weights = np.ones(enh.shape)
-        
-    x_0_all = [pk_model.pkp_array(pars)  # get starting values as array
-           for pars in pk_pars_0]
+
+    # get initial estimates as array, then scale
+    x_0_all = [pk_model.pkp_array(pars) for pars in pk_pars_0]
     x_scalefactor = pk_model.typical_vals
     x_0_norm_all = [x_0 / x_scalefactor for x_0 in x_0_all]
-    
-    #define function to minimise
+
+    # define function to minimise
     def cost(x_norm, *args):
         x = x_norm * x_scalefactor
         pk_pars_try = pk_model.pkp_dict(x)
-        enh_try = pkp_to_enh(pk_pars_try, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
-        ssq = np.sum(weights * ((enh_try - enh)**2))    
+        enh_try = pkp_to_enh(pk_pars_try, hct, k, R10_tissue, R10_blood,
+                             pk_model, c_to_r_model, water_ex_model,
+                             signal_model)
+        ssq = np.sum(weights * ((enh_try - enh)**2))
         return ssq
-    
-    #perform fitting
-    result = minimize_global(cost, x_0_norm_all, args=None,
-             bounds=None, constraints=pk_model.constraints, method='trust-constr')
 
+    # minimise the cost function
+    result = minimize_global(cost, x_0_norm_all, args=None, bounds=None,
+                             constraints=pk_model.constraints,
+                             method='trust-constr')
+
+    # generate optimal parameters (as dict) and predicted enh
     x_opt = result.x * x_scalefactor
     pk_pars_opt = pk_model.pkp_dict(x_opt)
-    enh_fit = pkp_to_enh(pk_pars_opt, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model, water_ex_model, signal_model)
-    enh_fit[weights == 0]=np.nan
-    
+    enh_fit = pkp_to_enh(pk_pars_opt, hct, k, R10_tissue, R10_blood, pk_model,
+                         c_to_r_model, water_ex_model, signal_model)
+    enh_fit[weights == 0] = np.nan
+
     return pk_pars_opt, enh_fit
 
 
-def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model, water_ex_model, signal_model):   
-   
-    # volume fractions and spin population fractions
-    v = volume_fractions(pk_pars, hct)    
+def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
+               water_ex_model, signal_model):
+    """Forward model to generate enhancement from pharmacokinetic parameters.
+
+    Any combination of signal, pharmacokinetic, relaxivity and water exchange
+    models may be used.
+
+    Assumptions:
+        -R2 and R2* effects neglected.
+        -spin population fraction = volume fraction
+        -Pre-contrast fast water exchange
+        -Pre-contrast R1 in capillary blood = R1 in VIF blood
+        -Pre-contrast R1 equal in EES and intracellular space
+        -Same concentration-relaxation relationship for all compartments
+
+    Parameters
+    ----------
+    pk_pars : dict
+        Pharmacokinetic parameters required by the model.
+        Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}].
+    hct : float
+        Capillary haematocrit.
+    k : k
+        B1 correction factor (actual/nominal flip angle).
+    R10_tissue : float
+        Pre-contrast R1 relaxation rate for tissue (s^-1)
+    R10_blood : float
+        Pre-contrast R1 relaxation rate for capillary blood (s^-1). Used to
+        estimate R10 for each tissue compartment. AIF R10 value is typically
+        used.
+    pk_model : pk_model
+        Pharmacokinetic model used to predict tracer distribution.
+    c_to_r_model : c_to_r_model
+        Model describing the concentration-relaxation relationship.
+    water_ex_model : water_ex_model
+        Model to predict one or more exponential relaxation components given
+        the relaxation rates for each compartment and water exchange behaviour.
+    signal_model : signal_model
+        Model descriibing the relaxation-signal relationship.
+
+    Returns
+    -------
+    enh : ndarray
+        1D float array containing enhancement time series (%).
+
+    """
+    # get volume fractions and spin population fractions
+    v = volume_fractions(pk_pars, hct)
     p = v
 
-    # pre-contrast R10 per compartment
+    # calculate pre-contrast R10 in each compartment
     R10_extravasc = (R10_tissue-p['b']*R10_blood)/(1-p['b'])
     R10 = {'b': R10_blood,
            'e': R10_extravasc,
            'i': R10_extravasc}
-    # R10 per compartment --> R1 exponential components 
+    # calculate R10 exponential components
     R10_components, p0_components = water_ex_model.R1_components(p, R10)
-    
-    # PK parameters --> tissue compartment concentrations
-    C_t, C_cp, C_e = pk_model.conc(**pk_pars)     
-    c = { 'b': C_cp / v['b'],
+
+    # calculate Gd concentration in each tissue compartment
+    C_t, C_cp, C_e = pk_model.conc(**pk_pars)
+    c = {'b': C_cp / v['b'],
          'e': C_e / v['e'],
          'i': np.zeros(C_e.shape),
-         'C_t': C_t }
+         'C_t': C_t}
 
-    # concentration --> R1 per compartment
+    # calculate R1 in each tissue compartment
     R1 = {'b': c_to_r_model.R1(R10['b'], c['b']),
           'e': c_to_r_model.R1(R10['e'], c['e']),
           'i': c_to_r_model.R1(R10['i'], c['i'])}
-    
-    # R1 per compartment --> R1 exponential components
-    R1_components, p_components = water_ex_model.R1_components(p, R1)      
-    
-    # R1 --> signal enhancement
+
+    # calculate R1 exponential components
+    R1_components, p_components = water_ex_model.R1_components(p, R1)
+
+    # calculate pre- and post-Gd signal, summed over relaxation components
     s_pre = np.sum([
         p0_c * signal_model.R_to_s(1, R10_components[i], k=k)
         for i, p0_c in enumerate(p0_components)], 0)
@@ -283,33 +345,79 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model, w
         p_c * signal_model.R_to_s(1, R1_components[i], k=k)
         for i, p_c in enumerate(p_components)], 0)
     enh = 100. * (s_post - s_pre) / s_pre
-    
+
     return enh
 
 
 def volume_fractions(pk_pars, hct):
-    # if vp exists, calculate vb, otherwise set vb to zero
+    """Calculate complete set of tissue volume fractions.
+
+    Calculates a complete set of tissue volume fractions, including any not
+    specified by the pharmacokinetic model.
+    Example 1: The Tofts model does not specify vp, therefore assuming the
+    original "weakly vascularised" interpretation, vb = 0 and
+    vi = 1 - ve
+    Example 2: The Patlak model does not specify ve, just a single
+    extravascular compartment with ve = 1 - vb and vi = 0.
+
+    Assumptions:
+        This function encodes a set of assumptions required to predict
+        signal enhancement in the presence of non-fast water exchange. This
+        could be modified to incorporate additional information or alternative
+        assumptions/interpretations.
+
+    Parameters
+    ----------
+    pk_pars : dict
+        Pharmacokinetic parameters required by the model.
+        Example: [{'vp': 0.1, 'ps': 1e-3}].
+    hct : float
+        Capillary haematocrit.
+
+    Returns
+    -------
+    v : dict
+        Complete set of tissue volume fractions (blood, EES, intracellular).
+        Example: {'b': 0.1, 'e': 0.4, 'i': 0.5}
+
+    """
+    # if vp exists, calculate vb, otherwise assume vb = 0
     if 'vp' in pk_pars:
         vb = pk_pars['vp'] / (1 - hct)
     else:
         vb = 0
-    
-    # if ve exists define vi as remaining volume, otherwise set to vi zero
+
+    # if ve exists define vi as remaining volume, otherwise assume vi = 0
     if 've' in pk_pars:
         ve = pk_pars['ve']
         vi = 1 - vb - ve
     else:
         ve = 1 - vb
-        vi = 0    
-    
+        vi = 0
+
     v = {'b': vb, 'e': ve, 'i': vi}
     return v
 
 
+def minimize_global(cost, x_0_all, **minimizer_kwargs):
+    """Find global minimum by calling scipy.optimize.minimize multiple times.
 
+    Parameters
+    ----------
+    cost : function
+        Function to be minimised.
+    x_0_all : list
+        list of 1D ndarrays. Each contains a set of initial parameter values.
+    **minimizer_kwargs : optional keyword arguments accepted by minimize
 
-def minimize_global(cost, x_0_all, **kwargs):
-    results = [minimize(cost, x_0, **kwargs) for x_0 in x_0_all]
+    Returns
+    -------
+    result : OptimizeResult
+        OptimizeResult corresponding to the fitting attempt with the lowest
+        minimum.
+
+    """
+    results = [minimize(cost, x_0, **minimizer_kwargs) for x_0 in x_0_all]
     costs = [result.fun for result in results]
     cost = min(costs)
     idx = costs.index(cost)

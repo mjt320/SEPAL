@@ -72,5 +72,4 @@ class spgr(signal_model):
         s = s0 * (((1.0-np.exp(-self.tr*R1))*np.sin(fa)) /
                   (1.0-np.exp(-self.tr*R1)*np.cos(fa))
                   ) * np.exp(-self.te*R2s)
-
         return s
