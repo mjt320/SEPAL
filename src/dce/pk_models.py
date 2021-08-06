@@ -69,7 +69,7 @@ class pk_model(ABC):
     """
 
     #  The following class variables should be overridden by derived classes
-    PARAMETERS = None
+    PARAMETER_NAMES = None
     TYPICAL_VALS = None
     CONSTRAINTS = None
 
@@ -80,7 +80,7 @@ class pk_model(ABC):
 
         if dt_interp_request is None:
             dt_interp_request = self.t[1] - self.t[0]
-        self.dt_interp, self.t_interp =\
+        self.dt_interp, self.t_interp = \
             interpolate_time_series(dt_interp_request, t)
         # get AIF concentration at interpolated time points
         self.c_ap_interp = aif.c_ap(self.t_interp)

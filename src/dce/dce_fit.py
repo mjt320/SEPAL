@@ -327,7 +327,7 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
     c = {'b': C_cp / v['b'],
          'e': C_e / v['e'],
          'i': np.zeros(C_e.shape),
-         'C_t': C_t}
+         }
 
     # calculate R1 in each tissue compartment
     R1 = {'b': c_to_r_model.R1(R10['b'], c['b']),
