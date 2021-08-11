@@ -29,7 +29,6 @@ This repository is a work-in-progress, has not been extensively tested and is no
 - Additional methods/generalised method for T1 fitting using other sequences
 
 ### To do list (short-term):
-- finish demo notebooks (water_ex, signal_models, relax)
 - deal with minimise failures
 
 
