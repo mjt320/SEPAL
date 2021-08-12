@@ -1,5 +1,10 @@
 """Signal models.
 
+Created 28 September 2020
+@authors: Michael Thrippleton
+@email: m.j.thrippleton@ed.ac.uk
+@institution: University of Edinburgh, UK
+
 Classes: signal_model and derived subclasses:
     spgr
 """

@@ -1,5 +1,10 @@
 """Functions to fit MRI SPGR signal to obtain T1.
 
+Created 28 September 2020
+@authors: Michael Thrippleton
+@email: m.j.thrippleton@ed.ac.uk
+@institution: University of Edinburgh, UK
+
 Functions:
     fit_vfa_2_point: obtain T1 using analytical formula based on two images
     fit_vfa_linear: obtain T1 using linear regression

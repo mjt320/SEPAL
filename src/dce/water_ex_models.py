@@ -1,5 +1,10 @@
 """Water exchange models.
 
+Created 28 September 2020
+@authors: Michael Thrippleton
+@email: m.j.thrippleton@ed.ac.uk
+@institution: University of Edinburgh, UK
+
 Classes: water_ex_model and derived subclasses:
     fxl
     nxl

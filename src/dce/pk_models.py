@@ -1,6 +1,11 @@
 # TODO: indicate parameter units somewhere
 """Pharmacokinetic models.
 
+Created 28 September 2020
+@authors: Michael Thrippleton
+@email: m.j.thrippleton@ed.ac.uk
+@institution: University of Edinburgh, UK
+
 Classes: pk_model and associated subclasses
 Functions: interpolate_time_series
 """

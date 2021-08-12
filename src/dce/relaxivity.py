@@ -1,6 +1,11 @@
 """Relaxivity models.
 
-Classes: c_to_r_model and derived subclasses:
+Created 28 September 2020
+@authors: Michael Thrippleton
+@email: m.j.thrippleton@ed.ac.uk
+@institution: University of Edinburgh, UK
+
+Classes: c_to_r_model abstract class and derived subclasses:
     c_to_r_linear
 """
 
@@ -35,7 +40,9 @@ class c_to_r_linear(c_to_r_model):
     """Linear relaxivity subclass.
 
     Linear relationship between R1/R2 and concentration.
-    Parameters:
+
+    Parameters
+    ----------
         r1 : float
             R1 relaxivity (s^-1 mM^-1)
         r2 : float

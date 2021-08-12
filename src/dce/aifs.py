@@ -1,5 +1,10 @@
 """AIFs.
 
+Created 28 September 2020
+@authors: Michael Thrippleton
+@email: m.j.thrippleton@ed.ac.uk
+@institution: University of Edinburgh, UK
+
 Classes: aif and derived subclasses:
     patient_specific
     parker_like

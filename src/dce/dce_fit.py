@@ -1,5 +1,10 @@
 """Functions to convert between quantities and fit DCE-MRI data.
 
+Created 28 September 2020
+@authors: Michael Thrippleton
+@email: m.j.thrippleton@ed.ac.uk
+@institution: University of Edinburgh, UK
+
 Functions:
     sig_to_enh
     enh_to_conc
