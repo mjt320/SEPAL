@@ -24,11 +24,8 @@ This repository is a work-in-progress, has not been extensively tested and is no
 - Compartment-specific relaxivity parameters/models
 - Fitting a time delay
 - Fitting water exchange parameters
-- Raising exceptions e.g. for non-physical values
 - Special model implementations, e.g. linear(ised) versions of pharmacokinetic models.
-- Additional methods/generalised method for T1 fitting using other sequences
+- T1 fitting using other techniques
 
 ### To do list (short-term):
-- deal with minimise failures
-
-
+- restructure and add to osipi
