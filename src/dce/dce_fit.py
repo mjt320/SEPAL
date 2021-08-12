@@ -69,7 +69,9 @@ def enh_to_conc(enh, k, R10, c_to_r_model, signal_model):
         res = root(lambda c:
                    e - conc_to_enh(c, k, R10, c_to_r_model, signal_model),
                    x0=0, method='hybr', options={'maxfev': 1000, 'xtol': 1e-7})
-        assert res.success, 'Enh-to-conc root finding failed.'
+        if res.success is False:
+            raise ArithmeticError(
+                f'Unable to find concentration: {res.message}')
         return min(res.x)
     # Loop through all time points
     C_t = np.asarray([enh_to_conc_single(e) for e in enh])
@@ -168,6 +170,10 @@ def conc_to_pkp(C_t, pk_model, pk_pars_0=None, weights=None):
                              constraints=pk_model.constraints,
                              method='trust-constr')
 
+    if result.success is False:
+        raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
+                              f': {result.message}')
+
     x_opt = result.x * x_scalefactor
     pk_pars_opt = pk_model.pkp_dict(x_opt)  # convert parameters to dict
     Ct_fit, _C_cp, _C_e = pk_model.conc(*x_opt)
@@ -253,6 +259,10 @@ def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
     result = minimize_global(cost, x_0_norm_all, args=None, bounds=None,
                              constraints=pk_model.constraints,
                              method='trust-constr')
+
+    if result.success is False:
+        raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
+                              f': {result.message}')
 
     # generate optimal parameters (as dict) and predicted enh
     x_opt = result.x * x_scalefactor
@@ -418,7 +428,8 @@ def minimize_global(cost, x_0_all, **minimizer_kwargs):
 
     """
     results = [minimize(cost, x_0, **minimizer_kwargs) for x_0 in x_0_all]
-    costs = [result.fun for result in results]
+    costs = [result.fun if result.success is False else np.nan
+             for result in results]
     cost = min(costs)
     idx = costs.index(cost)
     result = results[idx]
