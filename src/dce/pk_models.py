@@ -1,4 +1,3 @@
-# TODO: indicate parameter units somewhere
 """Pharmacokinetic models.
 
 Created 28 September 2020
