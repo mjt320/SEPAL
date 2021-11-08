@@ -9,7 +9,7 @@ Functions:
     minimize_global
 """
 
-
+import nibabel as nib
 import numpy as np
 from scipy.optimize import minimize, least_squares
 
@@ -68,3 +68,12 @@ def least_squares_global(res, x_0_all, **least_squares_kwargs):
     result = results[idx]
 
     return result
+
+def read_images(images):
+    if all([type(i) is str for i in images]):
+            data = np.stack([nib.load(i).get_fdata() for i in images], axis=-1)
+    elif all([type(i) is np.ndarray for i in images]):
+            data = np.stack(images, axis=-1)
+    else:
+        raise TypeError('Argument images should contain all strings or all ndarrays.')
+    return data

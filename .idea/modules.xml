@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/mrifit.iml" filepath="$PROJECT_DIR$/.idea/mrifit.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/SEPAL.iml" filepath="$PROJECT_DIR$/.idea/SEPAL.iml" />
     </modules>
   </component>
 </project>

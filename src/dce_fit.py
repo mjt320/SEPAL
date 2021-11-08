@@ -19,10 +19,41 @@ Functions:
 
 import numpy as np
 from scipy.optimize import root
+from fitting import calculator
 from utils.utilities import least_squares_global
 
 
-def sig_to_enh(s, base_idx):
+class sig_to_enh(calculator):
+    def __init__(self, base_idx):
+        self.base_idx = base_idx
+    
+    def proc(self, s):
+        s_pre = np.mean(s[self.base_idx])
+        enh = np.empty(s.shape, dtype=np.float32)
+        enh[:] = 100.*((s - s_pre)/s_pre) if s_pre > 0 else np.nan
+        return {'enh': enh}
+    
+
+class enh_to_conc(calculator):
+    def __init__(self, c_to_r_model, signal_model):
+        self.c_to_r_model = c_to_r_model
+        self.signal_model = signal_model
+    
+    def proc(self, enh, t10, k_fa=1):
+        # Loop through all time points
+        C_t = np.asarray([self.__enh_to_conc_single(e, t10, k_fa) for e in enh])
+        return {'C_t': C_t}
+    
+    def __enh_to_conc_single(self, e, t10, k_fa):
+        # Define function to fit for one time point
+        res = root(self.__fun, x0=0, args=(e, t10, k_fa), method='hybr', options={'maxfev': 1000, 'xtol': 1e-7})
+        return min(res.x) if res.success else np.nan
+
+    def __fun(self, C, e, t10, k_fa):
+        return e - conc_to_enh(C, t10, k_fa, self.c_to_r_model, self.signal_model)
+
+
+def sig_to_enh2(s, base_idx):
     """Convert signal data to enhancement.
 
     Parameters
@@ -42,7 +73,7 @@ def sig_to_enh(s, base_idx):
     return enh
 
 
-def enh_to_conc(enh, k, R10, c_to_r_model, signal_model):
+def enh_to_conc2(enh, k, R10, c_to_r_model, signal_model):
     """Estimate concentration time series from enhancements.
 
     Assumptions:
@@ -84,7 +115,7 @@ def enh_to_conc(enh, k, R10, c_to_r_model, signal_model):
     return C_t
 
 
-def conc_to_enh(C_t, k, R10, c_to_r_model, signal_model):
+def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
     """Forward model to convert concentration to enhancement.
 
     Assumptions:
@@ -100,7 +131,7 @@ def conc_to_enh(C_t, k, R10, c_to_r_model, signal_model):
         specifically the mMol of tracer per unit tissue volume.
     k : float
         B1 correction factor (actual/nominal flip angle)
-    R10 : float
+    t10 : float
         Pre-contrast R1 relaxation rate (s^-1)
     c_to_r_model : c_to_r_model
         Model describing the concentration-relaxation relationship.
@@ -112,6 +143,7 @@ def conc_to_enh(C_t, k, R10, c_to_r_model, signal_model):
     enh : ndarray
         1D float array containing enhancement time series (%)
     """
+    R10 = 1/t10
     R1 = c_to_r_model.R1(R10, C_t)
     R2 = c_to_r_model.R2(0, C_t)  # can assume R20=0 for existing signal models
     s_pre = signal_model.R_to_s(s0=1., R1=R10, R2=0, R2s=0, k=k)
