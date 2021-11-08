@@ -1,6 +1,6 @@
 # South Edinburgh Perfusion Analysis Library (SEPAL)
 
-**Please note: this library is my contribution to the ISMRM OSIPI project. The latest version is hosted in the [OSIPI DCE-DSC-MRI_CodeCollection repository](https://github.com/OSIPI/DCE-DSC-MRI_CodeCollection), where unit tests and perfusion code by other authors can also be found.**
+**Please note: This library is also hosted in the [OSIPI DCE-DSC-MRI_CodeCollection repository](https://github.com/OSIPI/DCE-DSC-MRI_CodeCollection), where unit tests and perfusion code by other authors can also be found.**
 
 Python library for simulating and fitting DCE-MRI data. It permits arbitrary combinations of pulse sequence, pharmacokinetic model, water exchange model, etc. The code is a work-in-progress, has not been extensively tested and is not recommended or approved for use.
 
@@ -35,4 +35,5 @@ Created 28 September 2020
 
 TODO:
 - Convert fitting functions to OO methods. Add image processing functions.
+- Parallel
 - Calculate IRF integrals exactly.
