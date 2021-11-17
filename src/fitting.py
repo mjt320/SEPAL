@@ -35,7 +35,7 @@ class calculator(ABC):
         # read argument images and reshape to 1D
         if arg_images is not None:
             # args = tuple; each element contains all voxels for an argument
-            args, _hdrs = zip(*[read_images(a) for a in arg_images])
+            args, _hdrs = zip(*[read_images(a) if type(a) is not float else (np.tile(a, data.shape[:-1]), None) for a in arg_images])
             # args_1d = tuple; each element is a tuple of all arguments for a voxel
             args_1d = tuple(zip(*[a.reshape(-1) for a in args]))
         else:
@@ -67,8 +67,7 @@ class calculator(ABC):
         # filter outputs
         if filters is not None:
             for name, limits in filters.items():
-                outputs[name][(outputs[name] < limits[0]) |
-                              (outputs[name] > limits[1])] = np.nan
+                outputs[name][~(limits[0] <= outputs[name] <= limits[1])] = np.nan
         
         # reshape arrays to match image
         for name, values in outputs.items():
