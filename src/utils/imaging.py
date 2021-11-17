@@ -32,21 +32,20 @@ def roi_measure(image, mask_image):
     data, _hdr = read_images(image)
     mask, _hdr = read_images(mask_image)
     
-    # THIS WONT WORK. SORT OUT DIMENSIONS AND LOOPING
     if mask.ndim == data.ndim:
         data = np.expand_dims(data, axis=0)
     
-    if not all((mask==0) | (mask==1)):
-        raise ValueError('Mask contains values that are not 0 or 1.')
-    
     # flatten spatial dimensions
-    data = data.reshape(data.shape[0], -1)
-    mask = mask.reshape(mask.shape[0], -1)
-    masked_data = data[:, mask==1]
+    data_2d = data.reshape(-1, data.shape[-1])
+    mask_1d = mask.reshape(-1)
 
-    mean = np.squeeze([np.nanmean(m_d) for m_d in masked_data])
-    median = np.squeeze([np.nanmedian(m_d) for m_d in masked_data])
-    sd = np.squeeze([np.nanstd(m_d) for m_d in masked_data])
+    if not all((mask_1d==0) | (mask_1d==1)):
+        raise ValueError('Mask contains values that are not 0 or 1.')
+
+    masked_voxels = data_2d[mask_1d==1, :]
+    mean = np.squeeze([np.nanmean(m_d) for m_d in masked_voxels.transpose()])
+    median = np.squeeze([np.nanmedian(m_d) for m_d in masked_voxels.transpose()])
+    sd = np.squeeze([np.nanstd(m_d) for m_d in masked_voxels.transpose()])
     
     return {'mean': mean, 'median': median, 'sd': sd}
     

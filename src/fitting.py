@@ -16,7 +16,7 @@ from utils.imaging import read_images
 class calculator(ABC):
     # interface for classes that process data, e.g. fit DCE curve, estimate T1
     @abstractmethod
-    def proc():
+    def proc(self):
         # method to process a single data series (e.g. fit time series for one voxel)
         # should be overridden in subclasses
         # returns dict(values), series
