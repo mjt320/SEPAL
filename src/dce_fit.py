@@ -26,6 +26,9 @@ class sig_to_enh(calculator):
     def __init__(self, base_idx):
         self.base_idx = base_idx
 
+    def output_info(self):
+        return {'enh': True}
+
     def proc(self, s):
         s_pre = np.mean(s[self.base_idx])
         enh = np.empty(s.shape, dtype=np.float32)
@@ -38,7 +41,14 @@ class enh_to_conc(calculator):
         self.c_to_r_model = c_to_r_model
         self.signal_model = signal_model
 
+    def output_info(self):
+        return {'C_t': True}
+
     def proc(self, enh, t10, k_fa=1):
+        if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
+            raise ValueError(
+                f'Unable to calculate concentration: nan arguments received.'
+            )
         # Loop through all time points
         C_t = np.asarray([self.__enh_to_conc_single(e, t10, k_fa) for e in enh])
         return {'C_t': C_t}
@@ -46,7 +56,10 @@ class enh_to_conc(calculator):
     def __enh_to_conc_single(self, e, t10, k_fa):
         # Define function to fit for one time point
         res = root(self.__fun, x0=0, args=(e, t10, k_fa), method='hybr', options={'maxfev': 1000, 'xtol': 1e-7})
-        return min(res.x) if res.success else np.nan
+        if res.success is False:
+            raise ArithmeticError(
+                f'Unable to find concentration: {res.message}')
+        return min(res.x)
 
     def __fun(self, C, e, t10, k_fa):
         return e - conc_to_enh(C, t10, k_fa, self.c_to_r_model, self.signal_model)
@@ -165,7 +178,10 @@ class conc_to_pkp(calculator):
         else:
             self.weights = weights
         # Convert initial pars from list of dicts to list of arrays
-        self.x_0_all = [pk_model.pkp_array(pars) for pars in pk_pars_0]
+        self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
+
+    def output_info(self):
+        return {**{name: False for name in self.pk_model.parameter_names}, 'Ct_fit': True}
 
     def proc(self, C_t):
         result = least_squares_global(self.__residuals, self.x_0_all, args=(C_t,),
@@ -183,7 +199,8 @@ class conc_to_pkp(calculator):
 
     def __residuals(self, x, C_t):
         C_t_try, _C_cp, _C_e = self.pk_model.conc(*x)
-        return self.weights * (C_t_try - C_t)
+        res = self.weights * (C_t_try - C_t)
+        return res
 
 
 def conc_to_pkp_2(C_t, pk_model, pk_pars_0=None, weights=None):
