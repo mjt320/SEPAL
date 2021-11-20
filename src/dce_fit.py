@@ -17,7 +17,8 @@ Functions:
 """
 
 import numpy as np
-from scipy.optimize import root
+from scipy.signal import argrelextrema, find_peaks
+from scipy.interpolate import interp1d
 from fitting import calculator
 from utils.utilities import least_squares_global
 
@@ -37,9 +38,12 @@ class sig_to_enh(calculator):
 
 
 class enh_to_conc(calculator):
-    def __init__(self, c_to_r_model, signal_model):
+    def __init__(self, c_to_r_model, signal_model, C_min=-0.5, C_max=30, n_samples=1000):
         self.c_to_r_model = c_to_r_model
         self.signal_model = signal_model
+        self.C_min = C_min
+        self.C_max = C_max
+        self.C_samples = np.linspace(C_min, C_max, n_samples)
 
     def output_info(self):
         return {'C_t': True}
@@ -49,84 +53,16 @@ class enh_to_conc(calculator):
             raise ValueError(
                 f'Unable to calculate concentration: nan arguments received.'
             )
-        # Loop through all time points
-        C_t = np.asarray([self.__enh_to_conc_single(e, t10, k_fa) for e in enh])
-        return {'C_t': C_t}
-
-    def __enh_to_conc_single(self, e, t10, k_fa):
-        # Define function to fit for one time point
-        res = root(self.__fun, x0=0, args=(e, t10, k_fa), method='hybr', options={'maxfev': 1000, 'xtol': 1e-7})
-        if res.success is False:
-            raise ArithmeticError(
-                f'Unable to find concentration: {res.message}')
-        return min(res.x)
-
-    def __fun(self, C, e, t10, k_fa):
-        return e - conc_to_enh(C, t10, k_fa, self.c_to_r_model, self.signal_model)
-
-
-def sig_to_enh2(s, base_idx):
-    """Convert signal data to enhancement.
-
-    Parameters
-    ----------
-    s : ndarray
-        1D float array containing signal time series
-    base_idx : list
-        list of integers indicating the baseline time points.
-
-    Returns
-    -------
-    enh : ndarray
-        1D float array containing enhancement time series (%)
-    """
-    s_pre = np.mean(s[base_idx])
-    enh = 100. * ((s - s_pre) / s_pre)
-    return enh
-
-
-def enh_to_conc2(enh, k, R10, c_to_r_model, signal_model):
-    """Estimate concentration time series from enhancements.
-
-    Assumptions:
-        -fast-water-exchange limit.
-        -see conc_to_enh
-
-    Parameters
-    ----------
-    enh : ndarray
-        1D float array containing enhancement time series (%)
-    k : float
-        B1 correction factor (actual/nominal flip angle)
-    R10 : float
-        Pre-contrast R1 relaxation rate (s^-1)
-    c_to_r_model : c_to_r_model
-        Model describing the concentration-relaxation relationship.
-    signal_model : signal_model
-        Model descriibing the relaxation-signal relationship.
-
-    Returns
-    -------
-    C_t : ndarray
-        1D float array containing tissue concentration time series (mM),
-        specifically the mMol of tracer per unit tissue volume.
-
-    """
-
-    # Define function to fit for one time point
-    def enh_to_conc_single(e):
-        # Find the C where measured-predicted enhancement = 0
-        res = root(lambda c:
-                   e - conc_to_enh(c, k, R10, c_to_r_model, signal_model),
-                   x0=0, method='hybr', options={'maxfev': 1000, 'xtol': 1e-7})
-        if res.success is False:
-            raise ArithmeticError(
-                f'Unable to find concentration: {res.message}')
-        return min(res.x)
-
-    # Loop through all time points
-    C_t = np.asarray([enh_to_conc_single(e) for e in enh])
-    return C_t
+        e_samples = conc_to_enh(self.C_samples, t10, k_fa, self.c_to_r_model, self.signal_model)
+        C_st = self.C_samples[
+            np.concatenate((argrelextrema(e_samples, np.greater)[0], argrelextrema(e_samples, np.less)[0]))]
+        C_lb = self.C_min if C_st[C_st <= 0].size == 0 else max(C_st[C_st <= 0])
+        C_ub = self.C_max if C_st[C_st > 0].size == 0 else min(C_st[C_st > 0])
+        points_allowed = (C_lb <= self.C_samples) & (self.C_samples <= C_ub)
+        C_allowed = self.C_samples[points_allowed]
+        e_allowed = e_samples[points_allowed]
+        C_func = interp1d(e_allowed, C_allowed, kind='quadratic', bounds_error=True)
+        return {'C_t': C_func(enh)}
 
 
 def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
@@ -201,68 +137,6 @@ class conc_to_pkp(calculator):
         C_t_try, _C_cp, _C_e = self.pk_model.conc(*x)
         res = self.weights * (C_t_try - C_t)
         return res
-
-
-def conc_to_pkp_2(C_t, pk_model, pk_pars_0=None, weights=None):
-    """Fit concentration-time series to obtain pharmacokinetic parameters.
-
-    Uses non-linear least squares optimisation.
-
-    Assumptions:
-        -Fast-water-exchange limit
-        -See conc_to_enh
-
-    Parameters
-    ----------
-    C_t : ndarray
-        1D float array containing tissue concentration time series (mM),
-        specifically the mMol of tracer per unit tissue volume.
-    pk_model : pk_model
-        Pharmacokinetic model used to predict tracer distribution.
-    pk_pars_0 : list, optional
-        list of dicts containing starting values of pharmacokinetic parameters.
-        If there are >1 dicts then the optimisation will be run multiple times
-        and the global minimum used.
-        Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
-        Defaults to values in pk_model.typical_vals.
-    weights : ndarray, optional
-        1D float array of weightings to use for sum-of-squares calculation.
-        Can be used to "exclude" data points from optimisation.
-        Defaults to equal weighting for all points.
-
-    Returns
-    -------
-    tuple (pk_pars_opt, Ct_fit)
-        pk_pars_opt : dict of optimal pharmacokinetic parameters,
-            Example: {'vp': 0.1, 'ps': 1e-3, 've': 0.5}
-        Ct_fit : 1D ndarray of floats containing best-fit tissue
-            concentration-time series (mM).
-    """
-    if pk_pars_0 is None:
-        pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
-    if weights is None:
-        weights = np.ones(C_t.shape)
-
-    # Convert initial pars from list of dicts to list of arrays
-    x_0_all = [pk_model.pkp_array(pars) for pars in pk_pars_0]
-
-    def residuals(x):
-        C_t_try, _C_cp, _C_e = pk_model.conc(*x)
-        return weights * (C_t_try - C_t)
-
-    result = least_squares_global(residuals, x_0_all, method='trf',
-                                  bounds=pk_model.bounds,
-                                  x_scale=(pk_model.typical_vals))
-
-    if result.success is False:
-        raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
-                              f': {result.message}')
-    pk_pars_opt = pk_model.pkp_dict(result.x)  # convert parameters to dict
-    check_ve_vp_sum(pk_pars_opt)
-    Ct_fit, _C_cp, _C_e = pk_model.conc(*result.x)
-    Ct_fit[weights == 0] = np.nan
-
-    return pk_pars_opt, Ct_fit
 
 
 def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
