@@ -9,6 +9,7 @@ Functions:
 """
 
 from abc import ABC, abstractmethod
+from joblib import Parallel, delayed
 import nibabel as nib
 import numpy as np
 from utils.imaging import read_images
@@ -36,6 +37,7 @@ class calculator(ABC):
         data, input_header = read_images(input_images)
         data_2d = data.reshape(-1, data.shape[-1])  # N voxels x N datapoints per voxel
         n_voxels, n_points = data_2d.shape
+        print(n_voxels)
 
         # read argument images and reshape to 1D
         if arg_images is not None:
@@ -43,7 +45,7 @@ class calculator(ABC):
             args, _hdrs = zip(
                 *[read_images(a) if type(a) is not float else (np.tile(a, data.shape[:-1]), None) for a in arg_images])
             # args_1d = tuple; each element is a tuple of all arguments for a voxel
-            args_1d = tuple(zip(*[a.reshape(-1) for a in args]))
+            args_1d = list(zip(*[a.reshape(-1) for a in args]))
         else:
             args_1d = [()] * n_voxels
 
@@ -62,14 +64,62 @@ class calculator(ABC):
             outputs[name][:] = np.nan
 
         # process each voxel
-        for i, voxel_data in enumerate(data_2d):
-            if max(voxel_data) >= threshold and mask_1d[i]:
-                try:
-                    voxel_output = self.proc(voxel_data, *args_1d[i])
-                    for name, values in voxel_output.items():
-                        outputs[name][i, :] = values
-                except (ValueError, ArithmeticError):
-                    pass
+        # for i, voxel_data in enumerate(data_2d):
+        #     if max(voxel_data) >= threshold and mask_1d[i]:
+        #         try:
+        #             voxel_output = self.proc(voxel_data, *args_1d[i])
+        #             for name, values in voxel_output.items():
+        #                 outputs[name][i, :] = values
+        #         except (ValueError, ArithmeticError):
+        #             pass
+
+        # def proc_voxel(i_voxel, voxel_data):
+        #     if max(voxel_data) >= threshold and mask_1d[i_voxe]:
+        #         try:
+        #             voxel_output = self.proc(voxel_data, *args_1d[i_voxel])
+        #         except (ValueError, ArithmeticError):
+        #             voxel_output = {name:(np.tile(np.nan,n_points) if is1d else np.nan) for name, is1d in self.output_info.items()}
+        #         return voxel_output
+
+        n_chunks=30
+        n_jobs=4
+        chunks_start_idx = np.int32(n_voxels * (np.array(range(n_chunks)) / n_chunks))
+        # print(chunks_start_idx)
+
+        def proc_chunk(i_chunk):
+            start_voxel = chunks_start_idx[i_chunk]
+            end_voxel = chunks_start_idx[i_chunk+1] if (i_chunk != n_chunks-1) else n_voxels
+            n_chunk_voxels = end_voxel - start_voxel
+            chunk_voxels = np.arange(start_voxel, end_voxel, 1)
+            # print(start_voxel,' ',end_voxel,' ',n_chunk_voxels)
+
+            # Prepare dict of pre-allocated output arrays
+            chunk_output = {}
+            for name, is1d in self.output_info().items():
+                n_values = n_points if is1d else 1
+                chunk_output[name] = np.empty((n_chunk_voxels, n_values), dtype=np.float32)
+                chunk_output[name][:] = np.nan
+
+            for i_chunk, i in enumerate(chunk_voxels):
+                voxel_data = data_2d[i,:]
+                if max(voxel_data) >= threshold and mask_1d[i]:
+                    try:
+                        voxel_output = self.proc(voxel_data, *args_1d[i])
+                        for name, values in voxel_output.items():
+                            chunk_output[name][i_chunk, :] = values
+                    except (ValueError, ArithmeticError):
+                        pass
+            [print(name,' ',chunk_output[name].shape) for name in chunk_output.keys()]
+            return chunk_output
+
+        #[proc_voxel(i, voxel_data) for i, voxel_data in enumerate(data_2d)]
+        chunk_outputs = Parallel(n_jobs=n_jobs)(delayed(proc_chunk)(i_chunk) for i_chunk in range(n_chunks))
+        #chunk_outputs = [proc_chunk(i_chunk) for i_chunk in range(n_chunks)]
+
+        outputs = { key: np.concatenate(
+            [co[key] for co in chunk_outputs], axis=0
+        )
+            for key in self.output_info().keys() }
 
         # filter outputs
         if filters is not None:
@@ -78,6 +128,7 @@ class calculator(ABC):
 
         # reshape arrays to match image
         for name, values in outputs.items():
+            print(values.shape)
             outputs[name] = np.squeeze(outputs[name].reshape((*data.shape[:-1], values.shape[-1])))
         del data, data_2d
 
