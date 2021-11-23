@@ -36,7 +36,6 @@ TODO:
 - Try Patlak fitting and verify output
 - Convert fitting functions to OO methods. Add image processing functions.
 - Handle nans etc.
-- Parallel
 - linear Patlak model
 - Update docstrings and notebooks
 - Calculate IRF integrals exactly.
