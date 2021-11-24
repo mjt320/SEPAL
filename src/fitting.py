@@ -1,11 +1,12 @@
-"""Fitting.
+"""Base class fitter for DCE, T1 and other types of fitting.
+
 Created on Thu Oct 21 15:50:47 2021
 @authors: Michael Thrippleton
 @email: m.j.thrippleton@ed.ac.uk
 @institution: University of Edinburgh, UK
 
 Classes:
-Functions:
+    fitter (abstract base class)
 """
 
 from abc import ABC, abstractmethod
@@ -18,7 +19,7 @@ from joblib import Parallel, delayed
 from utils.imaging import read_images
 
 
-class calculator(ABC):
+class fitter(ABC):
     """Abstract base class for fitting algorithms.
 
     Subclasses must implement the proc method, which process a single data
@@ -27,7 +28,6 @@ class calculator(ABC):
     provided for processing entire images by calling the proc method on each
     voxel.
     """
-
     @abstractmethod
     def proc(self, *args):
         """Abstract method processing a single data series.
@@ -89,7 +89,6 @@ class calculator(ABC):
                 of the first input image will be used, otherwise an exception is
                 raised.
             n_procs (int): Number of processes for parallel computation.
-            n_chunks:
 
         Returns:
             dict: key=output parameter name, value=ndarray of values

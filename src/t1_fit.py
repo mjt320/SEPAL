@@ -16,15 +16,15 @@ Functions:
 
 import numpy as np
 from scipy.optimize import curve_fit, least_squares
-from fitting import calculator
+from fitting import fitter
 
 
-class vfa_2points(calculator):
+class vfa_2points(fitter):
     def __init__(self, fa, tr):
         self.fa = np.asarray(fa)
         self.tr = tr
         self.fa_rad = np.pi*self.fa/180
-        
+
     def proc(self, s, k_fa=1):
         with np.errstate(divide='ignore', invalid='ignore'):
             fa_true = k_fa * self.fa_rad
@@ -42,19 +42,19 @@ class vfa_2points(calculator):
         return {'s0': s0, 't1': t1}
 
 
-class vfa_linear(calculator):
+class vfa_linear(fitter):
     def __init__(self, fa, tr):
         self.fa = np.asarray(fa)
         self.tr = tr
         self.fa_rad = np.pi*self.fa/180
-        
+
     def proc(self, s, k_fa=1):
         fa_true = k_fa * self.fa_rad
         y = s / np.sin(fa_true)
         x = s / np.tan(fa_true)
         A = np.stack([x, np.ones(x.shape)], axis=1)
         slope, intercept = np.linalg.lstsq(A, y, rcond=None)[0]
-    
+
         is_valid = (intercept > 0) and (0. < slope < 1.)
         t1, s0 = (-self.tr/np.log(slope),
                   intercept/(1-slope)) if is_valid else (np.nan, np.nan)
@@ -62,7 +62,7 @@ class vfa_linear(calculator):
         return {'s0': s0, 't1': t1}
 
 
-class vfa_nonlinear(calculator):
+class vfa_nonlinear(fitter):
     def __init__(self, fa, tr):
         self.fa = np.asarray(fa)
         self.tr = tr
@@ -83,18 +83,18 @@ class vfa_nonlinear(calculator):
                            )
         if result.success is False:
             raise ArithmeticError(f'Unable to fit VFA data'
-                                  f': {result.message}')    
-    
+                                  f': {result.message}')
+
         s0, t1 = result.x
         return {'s0': s0, 't1': t1}
-    
+
     def __residuals(self, x, s, k_fa):
         s0, t1 = x
         s_est = spgr_signal(s0, t1, self.tr, k_fa*self.fa)
         return s - s_est
 
 
-class hifi(calculator):
+class hifi(fitter):
     def __init__(self, esp, ti, n, b, td, centre):
         self.esp = esp
         self.ti = ti
@@ -111,7 +111,7 @@ class hifi(calculator):
         self.get_linear_estimate = self.n_spgr > 1 and np.all(
             np.isclose(esp[self.idx_spgr], esp[self.idx_spgr[0]]))
         self.linear_fitter = vfa_linear( b[self.is_spgr], esp[self.idx_spgr[0]])
-    
+
     def proc(self, s, k_fa_fixed=None):
         # First get a quick linear T1 estimate
         if self.get_linear_estimate:  # If >1 SPGR, use linear VFA fit
@@ -151,7 +151,7 @@ class hifi(calculator):
 
     def __residuals(self, x, s):
         return s - self.__signal(x)
-    
+
     def __signal(self, x):
         t1, s0, k_fa = x
         s = np.zeros(self.n_scans)

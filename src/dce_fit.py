@@ -19,11 +19,11 @@ Functions:
 import numpy as np
 from scipy.signal import argrelextrema, find_peaks
 from scipy.interpolate import interp1d
-from fitting import calculator
+from fitting import fitter
 from utils.utilities import least_squares_global
 
 
-class sig_to_enh(calculator):
+class sig_to_enh(fitter):
     def __init__(self, base_idx):
         self.base_idx = base_idx
 
@@ -37,7 +37,7 @@ class sig_to_enh(calculator):
         return {'enh': enh}
 
 
-class enh_to_conc(calculator):
+class enh_to_conc(fitter):
     def __init__(self, c_to_r_model, signal_model, C_min=-0.5, C_max=30, n_samples=1000):
         self.c_to_r_model = c_to_r_model
         self.signal_model = signal_model
@@ -102,7 +102,7 @@ def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
     return enh
 
 
-class conc_to_pkp(calculator):
+class conc_to_pkp(fitter):
     def __init__(self, pk_model, pk_pars_0=None, weights=None):
         self.pk_model = pk_model
         if pk_pars_0 is None:
