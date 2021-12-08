@@ -38,8 +38,9 @@ def minimize_global(cost, x_0_all, **minimizer_kwargs):
     cost = min(costs)
     idx = costs.index(cost)
     result = results[idx]
-    
+
     return result
+
 
 def least_squares_global(res, x_0_all, **least_squares_kwargs):
     """Find global minimum by calling scipy.optimize.least_squares multiple times.
@@ -68,12 +69,3 @@ def least_squares_global(res, x_0_all, **least_squares_kwargs):
     result = results[idx]
 
     return result
-
-def read_images(images):
-    if all([type(i) is str for i in images]):
-            data = np.stack([nib.load(i).get_fdata() for i in images], axis=-1)
-    elif all([type(i) is np.ndarray for i in images]):
-            data = np.stack(images, axis=-1)
-    else:
-        raise TypeError('Argument images should contain all strings or all ndarrays.')
-    return data

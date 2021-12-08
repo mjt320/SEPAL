@@ -6,7 +6,7 @@ Created 28 September 2020
 @institution: University of Edinburgh, UK
 
 Functions:
-    sig_to_enh
+    SigToEnh
     enh_to_conc
     conc_to_enh
     conc_to_pkp
@@ -23,7 +23,7 @@ from fitting import fitter
 from utils.utilities import least_squares_global
 
 
-class sig_to_enh(fitter):
+class SigToEnh(fitter):
     def __init__(self, base_idx):
         self.base_idx = base_idx
 

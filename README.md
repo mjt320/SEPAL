@@ -33,9 +33,9 @@ Created 28 September 2020
 - Special model implementations, e.g. linear and graphical versions of Patlak model
 
 TODO:
+- Update docstrings and notebooks
 - Try Patlak fitting and verify output
-- Convert fitting functions to OO methods. Add image processing functions.
 - Handle nans etc.
 - linear Patlak model
-- Update docstrings and notebooks
+- Convert fitting functions to OO methods. Add image processing functions.
 - Calculate IRF integrals exactly.

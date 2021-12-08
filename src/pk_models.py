@@ -37,7 +37,7 @@ class pk_model(ABC):
         calculated, i.e. times corresponding to data points.
     n : int
         number of data points
-    aif : aifs.aif
+    aif : aifs.Aif
         AIF object that will be used to calculate tissue concentrations
     upsample_factor : int, optional
         Factor by which data is upsampled in time, relative to the smallest
@@ -102,8 +102,8 @@ class pk_model(ABC):
             1D float array of times at which concentration should be
             calculated. Normally these are the times at which data points were
             measured. The sequence of times does not have to start at zero.
-        aif : aifs.aif
-            aif object to use.
+        aif : aifs.Aif
+            Aif object to use.
         upsample_factor : int, optional
             The IRF and AIF are upsampled by this factor when calculating
             concentration. For non-uniform temporal resolution, the smallest

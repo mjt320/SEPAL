@@ -5,12 +5,12 @@ Created 28 September 2020
 @email: m.j.thrippleton@ed.ac.uk
 @institution: University of Edinburgh, UK
 
-Classes: aif and derived subclasses:
-    patient_specific
-    parker_like
-    parker
-    manning_slow
-    manning_fast
+Classes: Aif and derived subclasses:
+    PatientSpecific
+    ParkerLike
+    Parker
+    ManningSlow
+    ManningFast
 """
 
 from abc import ABC, abstractmethod
@@ -19,12 +19,12 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-class aif(ABC):
+class Aif(ABC):
     """Abstract base class for arterial input functions.
 
     Subclasses correspond to types of AIF, e.g. population-average functions
     and patient-specific AIFs based on input data.
-    The main purpose of the aif class is to return the tracer concentration in
+    The main purpose of the Aif class is to return the tracer concentration in
     arterial plasma at any time points.
 
     Methods
@@ -51,7 +51,7 @@ class aif(ABC):
         pass
 
 
-class patient_specific(aif):
+class PatientSpecific(Aif):
     """Patient-specific AIF subclass.
 
     Constructed using time-concentration data, typically obtained from
@@ -83,7 +83,7 @@ class patient_specific(aif):
         return c_ap
 
 
-class parker_like(aif):
+class ParkerLike(Aif):
     """Parker-like AIF subclass.
 
     Generate AIF concentrations using a mathematical function that is based
@@ -117,21 +117,21 @@ class parker_like(aif):
         t_mins = (t - self.t_start) / 60.
 
         # calculate c(t) for arterial blood
-        c_ab = (self.a1/(self.sigma1*np.sqrt(2.*np.pi))) * \
-            np.exp(-((t_mins-self.t1)**2)/(2.*self.sigma1**2)) + \
-            (self.a2/(self.sigma2*np.sqrt(2.*np.pi))) * \
-            np.exp(-((t_mins-self.t2)**2)/(2.*self.sigma2**2)) + \
-            (self.alpha*np.exp(-self.beta*t_mins) +
-             self.alpha2*np.exp(-self.beta2*t_mins)) / \
-            (1+np.exp(-self.s*(t_mins-self.tau)))
+        c_ab = (self.a1 / (self.sigma1 * np.sqrt(2. * np.pi))) * \
+            np.exp(-((t_mins - self.t1) ** 2) / (2. * self.sigma1 ** 2)) + \
+            (self.a2 / (self.sigma2 * np.sqrt(2. * np.pi))) * \
+            np.exp(-((t_mins - self.t2) ** 2) / (2. * self.sigma2 ** 2)) + \
+            (self.alpha * np.exp(-self.beta * t_mins) +
+             self.alpha2 * np.exp(-self.beta2 * t_mins)) / \
+            (1 + np.exp(-self.s * (t_mins - self.tau)))
         c_ab *= self.scale_factor
         c_ap = c_ab / (1 - self.hct)
         c_ap[t < self.t_start] = 0.
         return c_ap
 
 
-class parker(parker_like):
-    """Parker AIF (subclass of parker_like).
+class Parker(ParkerLike):
+    """Parker AIF (subclass of ParkerLike).
 
     Generate AIF concentrations using Parker population-average function.
     Reference: Parker et al., Magnetic Resonance in Medicine, 2006
@@ -151,9 +151,10 @@ class parker(parker_like):
         super().__init__(hct, t_start=t_start)
 
 
-class manning_fast(parker_like):
+class ManningFast(ParkerLike):
     """AIF function for DCE-MRI with fast injection and long acquisition time.
 
+    TODO: CHECK PARAMETERS
     Based on Parker AIF and modified to reflect measured AIF in a mild-stroke
     population over a longer acquisition time.
     Reference: Manning et al., Magnetic Resonance in Medicine, 2021
@@ -174,7 +175,7 @@ class manning_fast(parker_like):
                          beta2=0.0240, scale_factor=0.89, t_start=t_start)
 
 
-class manning_slow(patient_specific):
+class ManningSlow(PatientSpecific):
     """AIF function for DCE-MRI with fast injection and long acquisition time.
 
     Based on data from a mild-stroke population acquired with a slow injection.
@@ -198,21 +199,23 @@ class manning_slow(patient_specific):
         # We define first time point as t=3*39.62 to ensure c_ap=0 until the
         # end of the 3rd pre-contrast acquisition.
         c_ap_ref = np.array([0.000000,
-            0.137956, 0.719692, 1.634260, 2.134626, 1.875262, 1.757133,
-            1.596487, 1.470386, 1.352991, 1.280691, 1.206125, 1.146877,
-            1.098958, 1.056410, 1.024845, 0.992435, 0.969435, 0.944838,
-            0.919047, 0.899973, 0.880771, 0.862782, 0.844603, 0.829817,
-            0.816528, 0.800179, 0.781698, 0.774622, 0.754376])
+                             0.137956, 0.719692, 1.634260, 2.134626, 1.875262,
+                             1.757133, 1.596487, 1.470386, 1.352991, 1.280691,
+                             1.206125, 1.146877, 1.098958, 1.056410, 1.024845,
+                             0.992435, 0.969435, 0.944838, 0.919047, 0.899973,
+                             0.880771, 0.862782, 0.844603, 0.829817, 0.816528,
+                             0.800179, 0.781698, 0.774622, 0.754376])
 
         t_ref = 39.62 * np.array([3.0,
-            3.5, 4.5,  5.5,  6.5,  7.5,  8.5,  9.5, 10.5, 11.5, 12.5, 13.5,
-            14.5, 15.5, 16.5, 17.5, 18.5, 19.5, 20.5, 21.5, 22.5, 23.5, 24.5,
-            25.5, 26.5, 27.5, 28.5, 29.5, 30.5, 31.5])
+                                  3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5,
+                                  12.5, 13.5, 14.5, 15.5, 16.5, 17.5, 18.5,
+                                  19.5, 20.5, 21.5, 22.5, 23.5, 24.5, 25.5,
+                                  26.5, 27.5, 28.5, 29.5, 30.5, 31.5])
 
         super().__init__(t_ref, c_ap_ref)
 
 
-class heye(parker_like):
+class Heye(ParkerLike):
     """AIF function for DCE-MRI with fast injection and long acquisition time.
 
     Based on Parker AIF and modified to reflect measured AIF in a mild-stroke
