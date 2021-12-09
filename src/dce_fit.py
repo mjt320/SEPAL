@@ -28,10 +28,10 @@ from utils.utilities import least_squares_global
 class SigToEnh(fitter):
     """Convert signal to enhancement.
 
-    Subclass of fitter.
-    Calculates the enhancement of each volume relative to the mean over
-    baseline volumes.
+    Subclass of fitter. Calculates the enhancement of each volume relative to
+    the mean over baseline volumes.
     """
+
     def __init__(self, base_idx):
         """
 
@@ -46,14 +46,14 @@ class SigToEnh(fitter):
         return {'enh': True}
 
     def proc(self, s):
-        """Convert signal series to enhancement. Overrides superclass method.
+        """Calculate enhancement time series. Overrides superclass method.
 
         Args:
             s (array): 1D signal array
 
         Returns:
             dict: {'enh': enh}
-                enh (array-like): 1D array of percentage enhancements
+                enh (array-like): 1D array of percentage enhancements (%)
 
         """
         s_pre = np.mean(s[self.base_idx])
@@ -65,7 +65,26 @@ class SigToEnh(fitter):
 
 
 class EnhToConc(fitter):
-    def __init__(self, c_to_r_model, signal_model, C_min=-0.5, C_max=30, n_samples=1000):
+    """Convert enhancement to concentration.
+
+    Subclass of fitter. Calculates points on the enh vs. conc curve,
+    interpolates and uses this to "look up" concentration values given the
+    enhancement values. It assumes the fast water exchange limit.
+    """
+
+    def __init__(self, c_to_r_model, signal_model, C_min=-0.5, C_max=30,
+                 n_samples=1000):
+        """
+
+        Args:
+            c_to_r_model (c_to_r_model): concentration to relaxation
+                relationship
+            signal_model (signal_model): relaxation to signal relationship
+            C_min (float): minimum value of concentration to look for
+            C_max (float): maximum value of concentration to look for
+            n_samples (int): number of points to sample the enh-conc
+                function, prior to interpolation
+        """
         self.c_to_r_model = c_to_r_model
         self.signal_model = signal_model
         self.C_min = C_min
@@ -76,19 +95,34 @@ class EnhToConc(fitter):
         return {'C_t': True}
 
     def proc(self, enh, t10, k_fa=1):
+        """Calculate concentration time series. Overrides superclass method.
+
+        Args:
+            enh (ndarray): 1D array of enhancements (%)
+            t10 (float): tissue T10 (s)
+            k_fa (float): B1 correction factor (actual/nominal flip angle)
+
+        Returns:
+            dict: {'C_t': C_t}
+                C_t (ndarray): 1D array of tissue concentrations (mM)
+
+        """
         if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
             raise ValueError(
-                f'Unable to calculate concentration: nan arguments received.'
-            )
-        e_samples = conc_to_enh(self.C_samples, t10, k_fa, self.c_to_r_model, self.signal_model)
-        C_st = self.C_samples[
-            np.concatenate((argrelextrema(e_samples, np.greater)[0], argrelextrema(e_samples, np.less)[0]))]
+                f'Unable to calculate concentration: nan arguments received.')
+        e_samples = conc_to_enh(self.C_samples, t10, k_fa, self.c_to_r_model,
+                                self.signal_model)
+        C_st = self.C_samples[np.concatenate((argrelextrema(e_samples,
+                                                            np.greater)[0],
+                                              argrelextrema(e_samples, np.less)[
+                                                  0]))]
         C_lb = self.C_min if C_st[C_st <= 0].size == 0 else max(C_st[C_st <= 0])
         C_ub = self.C_max if C_st[C_st > 0].size == 0 else min(C_st[C_st > 0])
         points_allowed = (C_lb <= self.C_samples) & (self.C_samples <= C_ub)
         C_allowed = self.C_samples[points_allowed]
         e_allowed = e_samples[points_allowed]
-        C_func = interp1d(e_allowed, C_allowed, kind='quadratic', bounds_error=True)
+        C_func = interp1d(e_allowed, C_allowed, kind='quadratic',
+                          bounds_error=True)
         return {'C_t': C_func(enh)}
 
 
@@ -107,17 +141,20 @@ class ConcToPkp(fitter):
         self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
 
     def output_info(self):
-        return {**{name: False for name in self.pk_model.parameter_names}, 'Ct_fit': True}
+        return {**{name: False for name in self.pk_model.parameter_names},
+                'Ct_fit': True}
 
     def proc(self, C_t):
-        result = least_squares_global(self.__residuals, self.x_0_all, args=(C_t,),
-                                      method='trf',
+        result = least_squares_global(self.__residuals, self.x_0_all,
+                                      args=(C_t,), method='trf',
                                       bounds=self.pk_model.bounds,
                                       x_scale=(self.pk_model.typical_vals))
         if result.success is False:
-            raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
-                                  f': {result.message}')
-        pk_pars_opt = self.pk_model.pkp_dict(result.x)  # convert parameters to dict
+            raise ArithmeticError(
+                f'Unable to calculate pharmacokinetic parameters'
+                f': {result.message}')
+        pk_pars_opt = self.pk_model.pkp_dict(
+            result.x)  # convert parameters to dict
         check_ve_vp_sum(pk_pars_opt)
         Ct_fit, _C_cp, _C_e = self.pk_model.conc(*result.x)
         Ct_fit[self.weights == 0] = np.nan
@@ -127,43 +164,6 @@ class ConcToPkp(fitter):
         C_t_try, _C_cp, _C_e = self.pk_model.conc(*x)
         res = self.weights * (C_t_try - C_t)
         return res
-
-
-def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
-    """Forward model to convert concentration to enhancement.
-
-    Assumptions:
-        -Fast-water-exchange limit.
-        -Assumes R20=0 for convenience, which may not be valid for all
-        sequences
-        -R2* calculation not presently implemented. Assumes R2=R2*
-
-    Parameters
-    ----------
-    C_t : ndarray
-        1D float array containing tissue concentration time series (mM),
-        specifically the mMol of tracer per unit tissue volume.
-    k : float
-        B1 correction factor (actual/nominal flip angle)
-    t10 : float
-        Pre-contrast R1 relaxation rate (s^-1)
-    c_to_r_model : c_to_r_model
-        Model describing the concentration-relaxation relationship.
-    signal_model : signal_model
-        Model descriibing the relaxation-signal relationship.
-
-    Returns
-    -------
-    enh : ndarray
-        1D float array containing enhancement time series (%)
-    """
-    R10 = 1 / t10
-    R1 = c_to_r_model.R1(R10, C_t)
-    R2 = c_to_r_model.R2(0, C_t)  # can assume R20=0 for existing signal models
-    s_pre = signal_model.R_to_s(s0=1., R1=R10, R2=0, R2s=0, k=k)
-    s_post = signal_model.R_to_s(s0=1., R1=R1, R2=R2, R2s=R2, k=k)
-    enh = 100. * ((s_post - s_pre) / s_pre)
-    return enh
 
 
 def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
@@ -251,6 +251,42 @@ def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
 
     return pk_pars_opt, enh_fit
 
+def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
+    """Forward model to convert concentration to enhancement.
+
+    Assumptions:
+        -Fast-water-exchange limit.
+        -Assumes R20=0 for convenience, which may not be valid for all
+        sequences
+        -R2* calculation not presently implemented. Assumes R2=R2*
+
+    Parameters
+    ----------
+    C_t : ndarray
+        1D float array containing tissue concentration time series (mM),
+        specifically the mMol of tracer per unit tissue volume.
+    k : float
+        B1 correction factor (actual/nominal flip angle)
+    t10 : float
+        Pre-contrast R1 relaxation rate (s^-1)
+    c_to_r_model : c_to_r_model
+        Model describing the concentration-relaxation relationship.
+    signal_model : signal_model
+        Model descriibing the relaxation-signal relationship.
+
+    Returns
+    -------
+    enh : ndarray
+        1D float array containing enhancement time series (%)
+    """
+    R10 = 1 / t10
+    R1 = c_to_r_model.R1(R10, C_t)
+    R2 = c_to_r_model.R2(0, C_t)  # can assume R20=0 for existing signal models
+    s_pre = signal_model.R_to_s(s0=1., R1=R10, R2=0, R2s=0, k=k)
+    s_post = signal_model.R_to_s(s0=1., R1=R1, R2=R2, R2s=R2, k=k)
+    enh = 100. * ((s_post - s_pre) / s_pre)
+    return enh
+
 
 def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
                water_ex_model, signal_model):
@@ -304,18 +340,13 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
 
     # calculate pre-contrast R10 in each compartment
     R10_extravasc = (R10_tissue - p['b'] * R10_blood) / (1 - p['b'])
-    R10 = {'b': R10_blood,
-           'e': R10_extravasc,
-           'i': R10_extravasc}
+    R10 = {'b': R10_blood, 'e': R10_extravasc, 'i': R10_extravasc}
     # calculate R10 exponential components
     R10_components, p0_components = water_ex_model.R1_components(p, R10)
 
     # calculate Gd concentration in each tissue compartment
     C_t, C_cp, C_e = pk_model.conc(**pk_pars)
-    c = {'b': C_cp / v['b'],
-         'e': C_e / v['e'],
-         'i': np.zeros(C_e.shape),
-         }
+    c = {'b': C_cp / v['b'], 'e': C_e / v['e'], 'i': np.zeros(C_e.shape), }
 
     # calculate R1 in each tissue compartment
     R1 = {'b': c_to_r_model.R1(R10['b'], c['b']),
@@ -326,12 +357,12 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
     R1_components, p_components = water_ex_model.R1_components(p, R1)
 
     # calculate pre- and post-Gd signal, summed over relaxation components
-    s_pre = np.sum([
-        p0_c * signal_model.R_to_s(1, R10_components[i], k=k)
-        for i, p0_c in enumerate(p0_components)], 0)
-    s_post = np.sum([
-        p_c * signal_model.R_to_s(1, R1_components[i], k=k)
-        for i, p_c in enumerate(p_components)], 0)
+    s_pre = np.sum(
+        [p0_c * signal_model.R_to_s(1, R10_components[i], k=k) for i, p0_c in
+            enumerate(p0_components)], 0)
+    s_post = np.sum(
+        [p_c * signal_model.R_to_s(1, R1_components[i], k=k) for i, p_c in
+            enumerate(p_components)], 0)
     enh = 100. * (s_post - s_pre) / s_pre
 
     return enh

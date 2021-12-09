@@ -68,7 +68,7 @@ def roi_measure(image, mask_image):
     data, _hdr = read_images(image)
     mask, _hdr = read_images(mask_image)
     if mask.ndim == data.ndim:
-        data = np.expand_dims(data, axis=0)  # TODO: check/test for 3D data
+        data = np.expand_dims(data, axis=-1)
     if not np.all((mask[:] == 0) | (mask[:] == 1)):
         raise ValueError('Mask contains values that are not 0 or 1.')
 

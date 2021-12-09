@@ -39,5 +39,6 @@ TODO:
 - Try Patlak fitting and verify output
 - Handle nans etc.
 - linear Patlak model
+- fast C calculation for SPGR with r2=0
 - Convert fitting functions to OO methods. Add image processing functions.
 - Calculate IRF integrals exactly.

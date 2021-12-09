@@ -57,8 +57,8 @@ class fitter(ABC):
 
     def proc_image(self, input_images, arg_images=None, mask=None,
                    threshold=-np.inf, write_output=False, dir=".",
-                   prefix="",
-                   suffix="", filters=None, template=None, n_procs=1):
+                   prefix="", suffix="", filters=None, template=None,
+                   n_procs=1):
         """Process image using subclass proc method.
 
         Args:
