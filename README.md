@@ -34,6 +34,8 @@ Created 28 September 2020
 
 TODO:
 - Update docstrings and notebooks
+- roi_measure TODO
+- change proc_image output to tuple(?)
 - Try Patlak fitting and verify output
 - Handle nans etc.
 - linear Patlak model

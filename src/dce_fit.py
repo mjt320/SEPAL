@@ -1,15 +1,17 @@
-"""Functions to convert between quantities and fit DCE-MRI data.
+"""Classes and functions to convert between quantities and fit DCE-MRI data.
 
 Created 28 September 2020
 @authors: Michael Thrippleton
 @email: m.j.thrippleton@ed.ac.uk
 @institution: University of Edinburgh, UK
 
-Functions:
+Classes:
     SigToEnh
-    enh_to_conc
+    EnhToConc
+    ConcToPkp
+
+Functions:
     conc_to_enh
-    conc_to_pkp
     enh_to_pkp
     pkp_to_enh
     volume_fractions
@@ -24,20 +26,45 @@ from utils.utilities import least_squares_global
 
 
 class SigToEnh(fitter):
+    """Convert signal to enhancement.
+
+    Subclass of fitter.
+    Calculates the enhancement of each volume relative to the mean over
+    baseline volumes.
+    """
     def __init__(self, base_idx):
+        """
+
+        Args:
+            base_idx (array-like): indices corresponding to baseline volumes.
+        """
         self.base_idx = base_idx
 
     def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
         return {'enh': True}
 
     def proc(self, s):
+        """Convert signal series to enhancement. Overrides superclass method.
+
+        Args:
+            s (array): 1D signal array
+
+        Returns:
+            dict: {'enh': enh}
+                enh (array-like): 1D array of percentage enhancements
+
+        """
         s_pre = np.mean(s[self.base_idx])
+        if s_pre <= 0:
+            raise ArithmeticError('Baseline signal is zero or negative.')
         enh = np.empty(s.shape, dtype=np.float32)
         enh[:] = 100. * ((s - s_pre) / s_pre) if s_pre > 0 else np.nan
         return {'enh': enh}
 
 
-class enh_to_conc(fitter):
+class EnhToConc(fitter):
     def __init__(self, c_to_r_model, signal_model, C_min=-0.5, C_max=30, n_samples=1000):
         self.c_to_r_model = c_to_r_model
         self.signal_model = signal_model
@@ -63,6 +90,43 @@ class enh_to_conc(fitter):
         e_allowed = e_samples[points_allowed]
         C_func = interp1d(e_allowed, C_allowed, kind='quadratic', bounds_error=True)
         return {'C_t': C_func(enh)}
+
+
+class ConcToPkp(fitter):
+    def __init__(self, pk_model, pk_pars_0=None, weights=None):
+        self.pk_model = pk_model
+        if pk_pars_0 is None:
+            self.pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
+        else:
+            self.pk_pars_0 = pk_pars_0
+        if weights is None:
+            self.weights = np.ones(pk_model.n)
+        else:
+            self.weights = weights
+        # Convert initial pars from list of dicts to list of arrays
+        self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
+
+    def output_info(self):
+        return {**{name: False for name in self.pk_model.parameter_names}, 'Ct_fit': True}
+
+    def proc(self, C_t):
+        result = least_squares_global(self.__residuals, self.x_0_all, args=(C_t,),
+                                      method='trf',
+                                      bounds=self.pk_model.bounds,
+                                      x_scale=(self.pk_model.typical_vals))
+        if result.success is False:
+            raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
+                                  f': {result.message}')
+        pk_pars_opt = self.pk_model.pkp_dict(result.x)  # convert parameters to dict
+        check_ve_vp_sum(pk_pars_opt)
+        Ct_fit, _C_cp, _C_e = self.pk_model.conc(*result.x)
+        Ct_fit[self.weights == 0] = np.nan
+        return {**pk_pars_opt, 'Ct_fit': Ct_fit}
+
+    def __residuals(self, x, C_t):
+        C_t_try, _C_cp, _C_e = self.pk_model.conc(*x)
+        res = self.weights * (C_t_try - C_t)
+        return res
 
 
 def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
@@ -100,43 +164,6 @@ def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
     s_post = signal_model.R_to_s(s0=1., R1=R1, R2=R2, R2s=R2, k=k)
     enh = 100. * ((s_post - s_pre) / s_pre)
     return enh
-
-
-class conc_to_pkp(fitter):
-    def __init__(self, pk_model, pk_pars_0=None, weights=None):
-        self.pk_model = pk_model
-        if pk_pars_0 is None:
-            self.pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
-        else:
-            self.pk_pars_0 = pk_pars_0
-        if weights is None:
-            self.weights = np.ones(pk_model.n)
-        else:
-            self.weights = weights
-        # Convert initial pars from list of dicts to list of arrays
-        self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
-
-    def output_info(self):
-        return {**{name: False for name in self.pk_model.parameter_names}, 'Ct_fit': True}
-
-    def proc(self, C_t):
-        result = least_squares_global(self.__residuals, self.x_0_all, args=(C_t,),
-                                      method='trf',
-                                      bounds=self.pk_model.bounds,
-                                      x_scale=(self.pk_model.typical_vals))
-        if result.success is False:
-            raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
-                                  f': {result.message}')
-        pk_pars_opt = self.pk_model.pkp_dict(result.x)  # convert parameters to dict
-        check_ve_vp_sum(pk_pars_opt)
-        Ct_fit, _C_cp, _C_e = self.pk_model.conc(*result.x)
-        Ct_fit[self.weights == 0] = np.nan
-        return {**pk_pars_opt, 'Ct_fit': Ct_fit}
-
-    def __residuals(self, x, C_t):
-        C_t_try, _C_cp, _C_e = self.pk_model.conc(*x)
-        res = self.weights * (C_t_try - C_t)
-        return res
 
 
 def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,

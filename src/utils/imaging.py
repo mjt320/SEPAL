@@ -20,8 +20,8 @@ def read_images(images):
     A list of input images is concatenated along a new dimension.
 
     Args:
-        images (list): List of ndarrays containing image data or str
-            indicating nifti image paths.
+        images (list): List of ndarrays containing image data
+            or str indicating nifti image paths.
 
     Returns:
         tuple: (data, header)
@@ -69,7 +69,7 @@ def roi_measure(image, mask_image):
     mask, _hdr = read_images(mask_image)
     if mask.ndim == data.ndim:
         data = np.expand_dims(data, axis=0)  # TODO: check/test for 3D data
-    if not all((mask[:] == 0) | (mask[:] == 1)):
+    if not np.all((mask[:] == 0) | (mask[:] == 1)):
         raise ValueError('Mask contains values that are not 0 or 1.')
 
     # flatten spatial dimensions

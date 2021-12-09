@@ -9,8 +9,9 @@ Classes: Aif and derived subclasses:
     PatientSpecific
     ParkerLike
     Parker
-    ManningSlow
     ManningFast
+    ManningSlow
+    Heye
 """
 
 from abc import ABC, abstractmethod

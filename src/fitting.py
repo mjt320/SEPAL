@@ -56,7 +56,7 @@ class fitter(ABC):
         pass
 
     def proc_image(self, input_images, arg_images=None, mask=None,
-                   threshold=-np.inf, write_output=False, out_dir=".",
+                   threshold=-np.inf, write_output=False, dir=".",
                    prefix="",
                    suffix="", filters=None, template=None, n_procs=1):
         """Process image using subclass proc method.
@@ -68,20 +68,20 @@ class fitter(ABC):
                 series dimension (e.g. time, flip angle). If list contains >1
                 images, they are concatenated along a new series dimension.
             arg_images (tuple): Tuple containing one image (str or ndarray,
-                as above) for each argument required by the proc method -
-                refer to subclass proc docstring for more info. Defaults to None
+                as above) for each argument required by the proc method.
+                Refer to subclass proc docstring for required arguments.
+                Defaults to None.
             mask (str or ndarray): Mask image (str or ndarray, as above). Must
                 contain 1 or 0 only. 1 indicates voxels to be processed.
                 Defaults to None (process all voxels).
             threshold (float): Voxel is processed if max input value in
                 series (e.g. flip angle or time series) is >= threshold.
                 Defaults to -np.inf
-            write_output (bool): Outputs written to nifti files if True.
-                Defaults to False.
-            out_dir (str): Directory for output images.
+            dir (str): Directory for output images. If None, no output
+                images are written. Defaults to None.
             prefix (str): filename prefix for output images. Defaults to "".
             suffix (str): filename suffix for output images. Defaults to "".
-            filters(dict): Dict of 2-tuples: key=parameter name, value=(lower
+            filters (dict): Dict of 2-tuples: key=parameter name, value=(lower
                 limit, upper limit). Output values outside the range are set
                 to nan.
             template (str): Nifti filename. Uses the header of this image to
@@ -93,9 +93,10 @@ class fitter(ABC):
         Returns:
             dict: key=output parameter name, value=ndarray of values
         """
+        write_output = False if dir is None else True
 
         # move to end if this works
-        out_dir_path = os.path.join(os.getcwd(), out_dir)
+        out_dir_path = os.path.join(os.getcwd(), dir)
         if write_output and not os.path.isdir(out_dir_path):
             os.mkdir(out_dir_path)
 
@@ -157,7 +158,7 @@ class fitter(ABC):
                         for name_, values_ in voxel_output.items():
                             chunk_output[name_][i_vox_chunk, :] = values_
                     except (ValueError, ArithmeticError):
-                        pass
+                        pass  # output remains as nan
             return chunk_output
 
         # run the processing

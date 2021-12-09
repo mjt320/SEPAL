@@ -7,6 +7,7 @@ Created 6 October 2021
 
 Functions:
     minimize_global
+    least_squares_global
 """
 
 import nibabel as nib
