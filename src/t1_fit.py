@@ -16,10 +16,10 @@ Functions:
 
 import numpy as np
 from scipy.optimize import curve_fit, least_squares
-from fitting import fitter
+from fitting import Fitter
 
 
-class vfa_2points(fitter):
+class vfa_2points(Fitter):
     def __init__(self, fa, tr):
         self.fa = np.asarray(fa)
         self.tr = tr
@@ -42,7 +42,7 @@ class vfa_2points(fitter):
         return {'s0': s0, 't1': t1}
 
 
-class vfa_linear(fitter):
+class vfa_linear(Fitter):
     def __init__(self, fa, tr):
         self.fa = np.asarray(fa)
         self.tr = tr
@@ -62,7 +62,7 @@ class vfa_linear(fitter):
         return {'s0': s0, 't1': t1}
 
 
-class vfa_nonlinear(fitter):
+class vfa_nonlinear(Fitter):
     def __init__(self, fa, tr):
         self.fa = np.asarray(fa)
         self.tr = tr
@@ -94,7 +94,7 @@ class vfa_nonlinear(fitter):
         return s - s_est
 
 
-class hifi(fitter):
+class hifi(Fitter):
     def __init__(self, esp, ti, n, b, td, centre):
         self.esp = esp
         self.ti = ti
