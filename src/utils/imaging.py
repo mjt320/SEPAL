@@ -65,6 +65,7 @@ def roi_measure(image, mask_image):
             voxels. For input data with one more dimension than the mask
             image (e.g. a time series), a 1D array of floats is returned.
     """
+    # read images and mask
     data, _hdr = read_images(image)
     mask, _hdr = read_images(mask_image)
     if mask.ndim == data.ndim:
@@ -76,10 +77,11 @@ def roi_measure(image, mask_image):
     data_2d = data.reshape(-1, data.shape[-1])  # 2D [location, time] format
     mask_1d = mask.reshape(-1)
 
+    # measure statistics for masked voxels
     masked_voxels = data_2d[mask_1d == 1, :]
-    mean = np.squeeze([np.nanmean(m_d) for m_d in masked_voxels.transpose()])
-    median = np.squeeze(
-        [np.nanmedian(m_d) for m_d in masked_voxels.transpose()])
-    sd = np.squeeze([np.nanstd(m_d) for m_d in masked_voxels.transpose()])
+    stats = [(np.nanmean(m_d), np.nanmedian(m_d), np.nanstd(m_d))
+             for m_d in masked_voxels.transpose()]
+    mean, median, sd = zip(*stats)
 
-    return {'mean': mean, 'median': median, 'sd': sd}
+    return {'mean': np.squeeze(mean), 'median': np.squeeze(median),
+            'sd': np.squeeze(sd)}

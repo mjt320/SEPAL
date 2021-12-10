@@ -32,9 +32,8 @@ Created 28 September 2020
 - Fitting free water exchange parameters
 - Special model implementations, e.g. linear and graphical versions of Patlak model
 
-TODO:
+### TODO:
 - Update docstrings and notebooks
-- roi_measure TODO
 - change proc_image output to tuple(?)
 - Try Patlak fitting and verify output
 - Handle nans etc.
