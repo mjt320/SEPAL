@@ -1,4 +1,4 @@
-"""Base class fitter for DCE, T1 and other types of fitting.
+"""Base class Fitter for DCE, T1 and other types of fitting.
 
 Created on Thu Oct 21 15:50:47 2021
 @authors: Michael Thrippleton
@@ -6,7 +6,7 @@ Created on Thu Oct 21 15:50:47 2021
 @institution: University of Edinburgh, UK
 
 Classes:
-    fitter (abstract base class)
+    Fitter (abstract base class)
 """
 
 from abc import ABC, abstractmethod
@@ -19,13 +19,13 @@ from joblib import Parallel, delayed
 from utils.imaging import read_images
 
 
-class fitter(ABC):
+class Fitter(ABC):
     """Abstract base class for fitting algorithms.
 
     Subclasses must implement the proc method, which process a single data
-    series, e.g. DCE time series for one voxel/ROI, set of values with
-    different flip angles for T1 measurement. The proc_image method is
-    provided for processing entire images by calling the proc method on each
+    series, e.g. a DCE time series for one voxel/ROI, or a set of signals for
+    different flip angles for a T1 measurement. The proc_image method is
+    provided for processing images by calling the subclass proc method on each
     voxel.
     """
     @abstractmethod
@@ -56,20 +56,20 @@ class fitter(ABC):
         pass
 
     def proc_image(self, input_images, arg_images=None, mask=None,
-                   threshold=-np.inf, write_output=False, dir=".",
-                   prefix="", suffix="", filters=None, template=None,
-                   n_procs=1):
+                   threshold=-np.inf, dir=".", prefix="", suffix="",
+                   filters=None, template=None, n_procs=1):
         """Process image using subclass proc method.
 
         Args:
             input_images (list): One or more input images to be processed. List
                 can contain nifti filenames (str) or arrays (ndarray). If there
-                is one image in list, the last dimension is assumed to be the
-                series dimension (e.g. time, flip angle). If list contains >1
-                images, they are concatenated along a new series dimension.
+                is one image in the list, the last dimension is assumed to be
+                the series dimension (e.g. time, flip angle). If the list
+                contains >1 images, they are concatenated along a new series
+                dimension.
             arg_images (tuple): Tuple containing one image (str or ndarray,
-                as above) for each argument required by the proc method.
-                Refer to subclass proc docstring for required arguments.
+                as above) for each argument needed by the subclass proc method.
+                Refer to the subclass proc docstring for required arguments.
                 Defaults to None.
             mask (str or ndarray): Mask image (str or ndarray, as above). Must
                 contain 1 or 0 only. 1 indicates voxels to be processed.
@@ -93,12 +93,6 @@ class fitter(ABC):
         Returns:
             dict: key=output parameter name, value=ndarray of values
         """
-        write_output = False if dir is None else True
-
-        # move to end if this works
-        out_dir_path = os.path.join(os.getcwd(), dir)
-        if write_output and not os.path.isdir(out_dir_path):
-            os.mkdir(out_dir_path)
 
         # read source images, e.g. signal-time images
         data, input_header = read_images(input_images)
@@ -115,16 +109,17 @@ class fitter(ABC):
             arg_arrays, _hdrs = zip(*[
                 read_images(a) if type(a) is not float else
                 (np.tile(a, data_shape[:-1]), None) for a in arg_images])
-            # convert to list of (list of arguments) for each voxel
+            # convert to N-D arrays to list of (list of arguments) per voxel
             args_1d = list(zip(*[a.reshape(-1) for a in arg_arrays]))
+            del arg_arrays
         del arg_images
 
-        # read mask image
+        # read mask image if provided
         if mask is None:
             mask_1d = np.empty(n_voxels, dtype=bool)
             mask_1d[:] = True
         else:
-            mask_1d = nib.load(mask).get_fdata().reshape(-1) > 0
+            mask_1d = nib.load(mask).get_fdata().reshape(-1)
             if any((mask_1d != 0) & (mask_1d != 1)):
                 raise ValueError('Mask contains elements that are not 0 or 1.')
             mask_1d = mask_1d.astype(bool)
@@ -134,7 +129,7 @@ class fitter(ABC):
         chunks_start_idx = np.int32(
             n_voxels * (np.array(range(n_chunks)) / n_chunks))
 
-        # function to process a chunk of voxels, to be called by joblib
+        # function to process a single chunk of voxels (to be called by joblib)
         def _proc_chunk(i_chunk):
             # work out voxel indices corresponding to the chunk
             start_voxel = chunks_start_idx[i_chunk]
@@ -158,10 +153,10 @@ class fitter(ABC):
                         for name_, values_ in voxel_output.items():
                             chunk_output[name_][i_vox_chunk, :] = values_
                     except (ValueError, ArithmeticError):
-                        pass  # output remains as nan
+                        pass  # outputs remain as nan
             return chunk_output
 
-        # run the processing
+        # run the processing using joblib
         chunk_outputs = Parallel(n_jobs=n_procs)(
             delayed(_proc_chunk)(i_chunk) for i_chunk in range(n_chunks))
         del data, data_2d, args_1d, mask_1d
@@ -179,13 +174,15 @@ class fitter(ABC):
                 outputs[name][
                     ~(limits[0] <= outputs[name] <= limits[1])] = np.nan
 
-        # reshape arrays to match image dimensions
+        # reshape output arrays to match image shape
         for name, values in outputs.items():
             outputs[name] = np.squeeze(outputs[name].reshape(
                 (*data_shape[:-1], values.shape[-1])))
 
-        # write output images if required
-        if write_output:
+        # write outputs as images if required
+        if dir is not None:
+            if not os.path.isdir(dir):
+                os.mkdir(dir)
             if template is not None:
                 hdr = nib.load(template).header
             elif input_header is not None:
@@ -197,6 +194,7 @@ class fitter(ABC):
             for name, values in outputs.items():
                 img = nib.nifti1.Nifti1Image(outputs[name], None, header=hdr)
                 filename = f"{prefix}{name}{suffix}.nii"
-                nib.save(img, filename)
+                filepath = os.path.join(dir,filename)
+                nib.save(img, filepath)
 
         return outputs

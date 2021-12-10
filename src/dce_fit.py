@@ -21,14 +21,14 @@ Functions:
 import numpy as np
 from scipy.signal import argrelextrema, find_peaks
 from scipy.interpolate import interp1d
-from fitting import fitter
+from fitting import Fitter
 from utils.utilities import least_squares_global
 
 
-class SigToEnh(fitter):
+class SigToEnh(Fitter):
     """Convert signal to enhancement.
 
-    Subclass of fitter. Calculates the enhancement of each volume relative to
+    Subclass of Fitter. Calculates the enhancement of each volume relative to
     the mean over baseline volumes.
     """
 
@@ -64,10 +64,10 @@ class SigToEnh(fitter):
         return {'enh': enh}
 
 
-class EnhToConc(fitter):
+class EnhToConc(Fitter):
     """Convert enhancement to concentration.
 
-    Subclass of fitter. Calculates points on the enh vs. conc curve,
+    Subclass of Fitter. Calculates points on the enh vs. conc curve,
     interpolates and uses this to "look up" concentration values given the
     enhancement values. It assumes the fast water exchange limit.
     """
@@ -80,9 +80,9 @@ class EnhToConc(fitter):
             c_to_r_model (c_to_r_model): concentration to relaxation
                 relationship
             signal_model (signal_model): relaxation to signal relationship
-            C_min (float): minimum value of concentration to look for
-            C_max (float): maximum value of concentration to look for
-            n_samples (int): number of points to sample the enh-conc
+            C_min (float, optional): minimum value of concentration to look for
+            C_max (float, optional): maximum value of concentration to look for
+            n_samples (int, optional): number of points to sample the enh-conc
                 function, prior to interpolation
         """
         self.c_to_r_model = c_to_r_model
@@ -100,7 +100,8 @@ class EnhToConc(fitter):
         Args:
             enh (ndarray): 1D array of enhancements (%)
             t10 (float): tissue T10 (s)
-            k_fa (float): B1 correction factor (actual/nominal flip angle)
+            k_fa (float, optional): B1 correction factor (actual/nominal flip
+            angle). Defaults to 1.
 
         Returns:
             dict: {'C_t': C_t}
@@ -126,8 +127,24 @@ class EnhToConc(fitter):
         return {'C_t': C_func(enh)}
 
 
-class ConcToPkp(fitter):
+class ConcToPkp(Fitter):
     def __init__(self, pk_model, pk_pars_0=None, weights=None):
+        """
+
+        Args:
+            pk_model (pk_model): Pharmacokinetic model used to predict tracer
+                distribution.
+            pk_pars_0 (list, optional): list of dicts containing starting values
+                of pharmacokinetic parameters. If there are >1 dicts then the
+                optimisation will be run multiple times and the global minimum
+                used.
+                Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
+                Defaults to values in pk_model.typical_vals.
+            weights (ndarray, optional): 1D float array of weightings to use
+                for sum-of-squares calculation. Can be used to "exclude" data
+                points from optimisation. Defaults to equal weighting for all
+                points.
+        """
         self.pk_model = pk_model
         if pk_pars_0 is None:
             self.pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
@@ -145,10 +162,22 @@ class ConcToPkp(fitter):
                 'Ct_fit': True}
 
     def proc(self, C_t):
+        """
+
+        Args:
+            C_t (ndarray): 1D float array containing tissue concentration
+            time series (mM), specifically the mMol of tracer per unit tissue
+            volume.
+
+        Returns:
+            tuple (pk_par_1, pk_par_2, ..., Ct_fit)
+                pk_par_i (float): fitted parameters
+                Ct_fit (ndarray): best-fit tissue concentration (mM).
+        """
         result = least_squares_global(self.__residuals, self.x_0_all,
                                       args=(C_t,), method='trf',
                                       bounds=self.pk_model.bounds,
-                                      x_scale=(self.pk_model.typical_vals))
+                                      x_scale=self.pk_model.typical_vals)
         if result.success is False:
             raise ArithmeticError(
                 f'Unable to calculate pharmacokinetic parameters'
@@ -237,7 +266,7 @@ def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
     # minimise the cost function
     result = least_squares_global(residuals, x_0_all, method='trf',
                                   bounds=pk_model.bounds,
-                                  x_scale=(pk_model.typical_vals))
+                                  x_scale=pk_model.typical_vals)
     if result.success is False:
         raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
                               f': {result.message}')
@@ -250,6 +279,7 @@ def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
     enh_fit[weights == 0] = np.nan
 
     return pk_pars_opt, enh_fit
+
 
 def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
     """Forward model to convert concentration to enhancement.
@@ -359,10 +389,10 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
     # calculate pre- and post-Gd signal, summed over relaxation components
     s_pre = np.sum(
         [p0_c * signal_model.R_to_s(1, R10_components[i], k=k) for i, p0_c in
-            enumerate(p0_components)], 0)
+         enumerate(p0_components)], 0)
     s_post = np.sum(
         [p_c * signal_model.R_to_s(1, R1_components[i], k=k) for i, p_c in
-            enumerate(p_components)], 0)
+         enumerate(p_components)], 0)
     enh = 100. * (s_post - s_pre) / s_pre
 
     return enh
