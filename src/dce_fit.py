@@ -195,7 +195,59 @@ class ConcToPkp(Fitter):
         return res
 
 
-def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
+class EnhToPKP(Fitter):
+    def __init__(self, hct, pk_model, R10_blood, c_to_r_model, water_ex_model,
+                 signal_model, pk_pars_0=None, weights=None):
+        self.hct = hct
+        self.pk_model = pk_model
+        self.R10_blood = R10_blood
+        self.c_to_r_model = c_to_r_model
+        self.water_ex_model = water_ex_model
+        self.signal_model = signal_model
+        if pk_pars_0 is None:
+            self.pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
+        else:
+            self.pk_pars_0 = pk_pars_0
+        if weights is None:
+            self.weights = np.ones(pk_model.n)
+        else:
+            self.weights = weights
+
+    def output_info(self):
+        return {**{name: False for name in self.pk_model.parameter_names},
+                'enh_fit': True}
+
+    def proc(self, enh, k_fa, t10_tissue):
+
+        result = least_squares_global(self.__residuals, self.pk_pars_0,
+                                      method='trf',
+                                      bounds=self.pk_model.bounds,
+                                      x_scale=self.pk_model.typical_vals)
+        # TODO: continue from here
+        # minimise the cost function
+        if result.success is False:
+            raise ArithmeticError(
+                f'Unable to calculate pharmacokinetic parameters'
+                f': {result.message}')
+        pk_pars_opt = pk_model.pkp_dict(result.x)
+
+        # generate optimal parameters (as dict) and predicted enh
+        check_ve_vp_sum(pk_pars_opt)
+        enh_fit = pkp_to_enh(pk_pars_opt, hct, k, R10_tissue, R10_blood,
+                             pk_model, c_to_r_model, water_ex_model,
+                             signal_model)
+        enh_fit[weights == 0] = np.nan
+        return pk_pars_opt, enh_fit
+
+    def __residuals(self, x, k_fa, t10_tissue, enh):
+        pk_pars_try = self.pk_model.pkp_dict(x)
+        enh_try = pkp_to_enh(pk_pars_try, self.hct, k_fa, t10_tissue,
+                             self.t10_blood, self.pk_model, self.c_to_r_model,
+                             self.water_ex_model, self.signal_model)
+        return self.weights * (enh_try - enh)
+
+
+def enh_to_pkp(enh, hct, k, t10_tissue, t10_blood, pk_model, c_to_r_model,
                water_ex_model, signal_model, pk_pars_0=None, weights=None):
     """Fit signal enhancement curve to obtain pharamacokinetic parameters.
 
@@ -213,11 +265,11 @@ def enh_to_pkp(enh, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
         Capillary haematocrit.
     k : float
         B1 correction factor (actual/nominal flip angle)
-    R10_tissue : float
-        Pre-contrast R1 relaxation rate for tissue (s^-1)
-    R10_blood : float
-        Pre-contrast R1 relaxation rate for capillary blood (s^-1). Used to
-        estimate R10 for each tissue compartment. AIF R10 value is typically
+    t10_tissue : float
+        Pre-contrast T1 relaxation rate for tissue (s)
+    t10_blood : float
+        Pre-contrast T1 relaxation rate for capillary blood (s). Used to
+        estimate T10 for each tissue compartment. AIF T10 value is typically
         used.
     pk_model : pk_model
         Pharmacokinetic model used to predict tracer distribution.
@@ -318,8 +370,8 @@ def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
     return enh
 
 
-def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
-               water_ex_model, signal_model):
+def pkp_to_enh(pk_pars, hct, k_fa, t10_tissue, t10_blood, pk_model,
+               c_to_r_model, water_ex_model, signal_model):
     """Forward model to generate enhancement from pharmacokinetic parameters.
 
     Any combination of signal, pharmacokinetic, relaxivity and water exchange
@@ -340,13 +392,13 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
         Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}].
     hct : float
         Capillary haematocrit.
-    k : k
+    k_fa : k
         B1 correction factor (actual/nominal flip angle).
-    R10_tissue : float
-        Pre-contrast R1 relaxation rate for tissue (s^-1)
-    R10_blood : float
-        Pre-contrast R1 relaxation rate for capillary blood (s^-1). Used to
-        estimate R10 for each tissue compartment. AIF R10 value is typically
+    t10_tissue : float
+        Pre-contrast t1 relaxation rate for tissue (s)
+    t10_blood : float
+        Pre-contrast t1 relaxation rate for capillary blood (s). Used to
+        estimate t10 for each tissue compartment. AIF t10 value is typically
         used.
     pk_model : pk_model
         Pharmacokinetic model used to predict tracer distribution.
@@ -369,6 +421,7 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
     p = v
 
     # calculate pre-contrast R10 in each compartment
+    R10_blood, R10_tissue = 1/t10_blood, 1/t10_tissue
     R10_extravasc = (R10_tissue - p['b'] * R10_blood) / (1 - p['b'])
     R10 = {'b': R10_blood, 'e': R10_extravasc, 'i': R10_extravasc}
     # calculate R10 exponential components
@@ -388,10 +441,10 @@ def pkp_to_enh(pk_pars, hct, k, R10_tissue, R10_blood, pk_model, c_to_r_model,
 
     # calculate pre- and post-Gd signal, summed over relaxation components
     s_pre = np.sum(
-        [p0_c * signal_model.R_to_s(1, R10_components[i], k=k) for i, p0_c in
+        [p0_c * signal_model.R_to_s(1, R10_components[i], k=k_fa) for i, p0_c in
          enumerate(p0_components)], 0)
     s_post = np.sum(
-        [p_c * signal_model.R_to_s(1, R1_components[i], k=k) for i, p_c in
+        [p_c * signal_model.R_to_s(1, R1_components[i], k=k_fa) for i, p_c in
          enumerate(p_components)], 0)
     enh = 100. * (s_post - s_pre) / s_pre
 
