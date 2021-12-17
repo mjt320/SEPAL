@@ -44,6 +44,10 @@ def read_images(images):
     return data, header
 
 
+def write_image(data, filepath, hdr):
+    img = nib.nifti1.Nifti1Image(data, None, header=hdr)
+    nib.save(img, filepath)
+
 def roi_measure(image, mask_image):
     """Return summary statistics for image voxels within a mask.
 

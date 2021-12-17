@@ -93,7 +93,7 @@ class pk_model(ABC):
     LOWER_BOUNDS = None
     UPPER_BOUNDS = None
 
-    def __init__(self, t, aif, upsample_factor=1, fixed_delay=0):
+    def __init__(self, t, aif, upsample_factor=1, fixed_delay=0, bounds=None):
         """Construct pk_model object.
 
         Parameters
@@ -113,6 +113,13 @@ class pk_model(ABC):
             Fixed delay to apply to AIF, reflecting the arterial arrival time.
             The default is 0. If set to None, the AIF delay is assumed to be
             a variable parameter.
+        bounds : tuple, optional
+            (lower bounds, upper bounds), where lower/upper bounds are a
+            tuple with one element per parameter in the order given by
+            type(self).PARAMETER_NAMES. If a fixed_delay is None then the
+            bounds for the bolus delay should be included as the last
+            parameter. Defaults to None (default values for the model are
+            used).
         """
         self.t = t
         self.n = self.t.size
@@ -124,17 +131,23 @@ class pk_model(ABC):
         self.tau_upsample = self.t_upsample - t[0]
         self.fixed_delay = fixed_delay
 
-        # set variable parameters and bounds, depending whether AIF delay fixed
+        # set variable parameters anbd bounds, depending whether AIF delay fixed
         if fixed_delay is None:  # add AIF delay as a variable parameter
             self.parameter_names = type(self).PARAMETER_NAMES + ('delay',)
             self.typical_vals = np.append(type(self).TYPICAL_VALS, 1)
-            self.bounds = (type(self).LOWER_BOUNDS + (-10,),
-                           type(self).UPPER_BOUNDS + (10,))
+            if bounds is None:
+                self.bounds = (type(self).LOWER_BOUNDS + (-10,),
+                               type(self).UPPER_BOUNDS + (10,))
+            else:
+                self.bounds = bounds
         else:  # AIF delay is fixed; store AIF as a vector for speed
             self.parameter_names = type(self).PARAMETER_NAMES
             self.typical_vals = type(self).TYPICAL_VALS
-            self.bounds = (type(self).LOWER_BOUNDS, type(self).UPPER_BOUNDS)
             self.c_ap_upsample = aif.c_ap(self.t_upsample - fixed_delay)
+            if bounds is None:
+                self.bounds = (type(self).LOWER_BOUNDS, type(self).UPPER_BOUNDS)
+            else:
+                self.bounds = bounds
 
     def conc(self, *pars, **pars_kw):
         """Get concentration time series as function of model parameters.
@@ -183,10 +196,12 @@ class pk_model(ABC):
 
         # Do the convolution to get C at every upsampled time point, then
         # interpolate to get C at the measured time points.
-        C_cp_upsample = self.dt_upsample * convolve(
-           c_ap_upsample, irf_cp, mode='full', method='auto')[:self.n_upsample]
-        C_e_upsample = self.dt_upsample * convolve(
-           c_ap_upsample, irf_e, mode='full', method='auto')[:self.n_upsample]
+        C_cp_upsample = self.dt_upsample * convolve(c_ap_upsample, irf_cp,
+                                                    mode='full', method='auto')[
+                                           :self.n_upsample]
+        C_e_upsample = self.dt_upsample * convolve(c_ap_upsample, irf_e,
+                                                   mode='full', method='auto')[
+                                          :self.n_upsample]
         # Downsample concentrations back to the measured time points
         C_cp = np.interp(self.t, self.t_upsample, C_cp_upsample)
         C_e = np.interp(self.t, self.t_upsample, C_e_upsample)
@@ -281,7 +296,7 @@ class patlak(pk_model):
         irf_cp[0] = 2. * vp / self.dt_upsample
 
         # calculate irf for the EES (constant term)
-        irf_e = np.ones(self.n_upsample, dtype=float) * (1./60.) * ps
+        irf_e = np.ones(self.n_upsample, dtype=float) * (1. / 60.) * ps
 
         return irf_cp, irf_e
 
@@ -306,7 +321,7 @@ class extended_tofts(pk_model):
         irf_cp[0] = 2. * vp / self.dt_upsample
 
         # calculate irf for the EES
-        irf_e = (1./60.) * ps * np.exp(-(self.tau_upsample * ps)/(60. * ve))
+        irf_e = (1. / 60.) * ps * np.exp(-(self.tau_upsample * ps) / (60. * ve))
 
         return irf_cp, irf_e
 
@@ -329,13 +344,13 @@ class tcum(pk_model):
         fp_per_s = fp / (60. * 100.)
         ps_per_s = ps / 60.
         tp = vp / (fp_per_s + ps_per_s)
-        ktrans = ps_per_s / (1 + ps_per_s/fp_per_s)
+        ktrans = ps_per_s / (1 + ps_per_s / fp_per_s)
 
         # calculate irf for capillary plasma
-        irf_cp = fp_per_s * np.exp(-self.tau_upsample/tp)
+        irf_cp = fp_per_s * np.exp(-self.tau_upsample / tp)
 
         # calculate irf for the EES
-        irf_e = ktrans * (1 - np.exp(-self.tau_upsample/tp))
+        irf_e = ktrans * (1 - np.exp(-self.tau_upsample / tp))
 
         return irf_cp, irf_e
 
@@ -361,19 +376,21 @@ class tcxm(pk_model):
         T = v / fp_per_s
         tc = vp / fp_per_s
         te = ve / ps_per_s
-        sig_p = ((T + te) + np.sqrt((T + te)**2 - (4 * tc * te)))/(2 * tc * te)
-        sig_n = ((T + te) - np.sqrt((T + te)**2 - (4 * tc * te)))/(2 * tc * te)
+        sig_p = ((T + te) + np.sqrt((T + te) ** 2 - (4 * tc * te))) / (
+                2 * tc * te)
+        sig_n = ((T + te) - np.sqrt((T + te) ** 2 - (4 * tc * te))) / (
+                2 * tc * te)
 
         # calculate irf for capillary plasma
         irf_cp = vp * sig_p * sig_n * (
-            (1 - te*sig_n) * np.exp(-self.tau_upsample*sig_n) + (te*sig_p - 1.)
-            * np.exp(-self.tau_upsample*sig_p)
-            ) / (sig_p - sig_n)
+                (1 - te * sig_n) * np.exp(-self.tau_upsample * sig_n) + (
+                te * sig_p - 1.) * np.exp(-self.tau_upsample * sig_p)) / (
+                         sig_p - sig_n)
 
         # calculate irf for the EES
-        irf_e = ve * sig_p * sig_n * (np.exp(-self.tau_upsample*sig_n)
-                                      - np.exp(-self.tau_upsample*sig_p)
-                                      ) / (sig_p - sig_n)
+        irf_e = ve * sig_p * sig_n * (
+                np.exp(-self.tau_upsample * sig_n) - np.exp(
+            -self.tau_upsample * sig_p)) / (sig_p - sig_n)
 
         return irf_cp, irf_e
 
@@ -399,6 +416,6 @@ class tofts(pk_model):
         irf_cp = np.zeros(self.n_upsample, dtype=float)
 
         # calculate irf for the EES
-        irf_e = ktrans_per_s * np.exp(-self.tau_upsample * ktrans_per_s/ve)
+        irf_e = ktrans_per_s * np.exp(-self.tau_upsample * ktrans_per_s / ve)
 
         return irf_cp, irf_e
