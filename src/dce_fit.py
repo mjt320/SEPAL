@@ -43,7 +43,8 @@ class SigToEnh(Fitter):
     def output_info(self):
         """Get output info. Overrides superclass method.
         """
-        return {'enh': True}
+        return ('enh', True),
+        # return {'enh': True}
 
     def proc(self, s):
         """Calculate enhancement time series. Overrides superclass method.
@@ -61,7 +62,8 @@ class SigToEnh(Fitter):
             raise ArithmeticError('Baseline signal is zero or negative.')
         enh = np.empty(s.shape, dtype=np.float32)
         enh[:] = 100. * ((s - s_pre) / s_pre) if s_pre > 0 else np.nan
-        return {'enh': enh}
+        return enh
+        # return {'enh': enh}
 
 
 class EnhToConc(Fitter):
@@ -92,7 +94,7 @@ class EnhToConc(Fitter):
         self.C_samples = np.linspace(C_min, C_max, n_samples)
 
     def output_info(self):
-        return {'C_t': True}
+        return ('C_t', True),
 
     def proc(self, enh, t10, k_fa=1):
         """Calculate concentration time series. Overrides superclass method.
@@ -124,7 +126,7 @@ class EnhToConc(Fitter):
         e_allowed = e_samples[points_allowed]
         C_func = interp1d(e_allowed, C_allowed, kind='quadratic',
                           bounds_error=True)
-        return {'C_t': C_func(enh)}
+        return C_func(enh)
 
 
 class ConcToPkp(Fitter):
@@ -158,8 +160,10 @@ class ConcToPkp(Fitter):
         self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
 
     def output_info(self):
-        return {**{name: False for name in self.pk_model.parameter_names},
-                'Ct_fit': True}
+        return tuple([(name, False) for name in
+                      self.pk_model.parameter_names]) + (('Ct_fit', True),)
+        # return {**{name: False for name in self.pk_model.parameter_names},
+        #         'Ct_fit': True}
 
     def proc(self, C_t):
         """
@@ -187,7 +191,8 @@ class ConcToPkp(Fitter):
         check_ve_vp_sum(pk_pars_opt)
         Ct_fit, _C_cp, _C_e = self.pk_model.conc(*result.x)
         Ct_fit[self.weights == 0] = np.nan
-        return {**pk_pars_opt, 'Ct_fit': Ct_fit}
+        return tuple(result.x) + (Ct_fit,)
+        # return {**pk_pars_opt, 'Ct_fit': Ct_fit}
 
     def __residuals(self, x, C_t):
         C_t_try, _C_cp, _C_e = self.pk_model.conc(*x)
@@ -214,8 +219,11 @@ class EnhToPKP(Fitter):
             self.weights = weights
 
     def output_info(self):
-        return {**{name: False for name in self.pk_model.parameter_names},
-                'enh_fit': True}
+        return tuple([(name, False) for name in
+                      self.pk_model.parameter_names]) + (('enh_fit', True),)
+        # return {**{name: False for name in self.pk_model.parameter_names},
+        #         'enh_fit': True}
+
 
     def proc(self, enh, k_fa, t10_tissue):
 

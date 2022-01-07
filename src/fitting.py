@@ -101,6 +101,8 @@ class Fitter(ABC):
         n_voxels, n_points = data_2d.shape
         data_shape = data.shape
 
+        names, _ = zip(*self.output_info())
+
         # read argument images, e.g. flip angle correction, T10
         if arg_images is None:
             args_1d = [()] * n_voxels
@@ -138,11 +140,11 @@ class Fitter(ABC):
             n_chunk_voxels = stop_voxel - start_voxel
             # preallocate output arrays
             chunk_output = {}
-            for name_, is1d in self.output_info().items():
+            for name, is1d in self.output_info():
                 n_values = n_points if is1d else 1
-                chunk_output[name_] = np.empty((n_chunk_voxels, n_values),
+                chunk_output[name] = np.empty((n_chunk_voxels, n_values),
                                                dtype=np.float32)
-                chunk_output[name_][:] = np.nan
+                chunk_output[name][:] = np.nan
             # process all voxels in the chunk
             for i_vox_chunk, i_vox in enumerate(np.arange(start_voxel,
                                                           stop_voxel, 1)):
@@ -150,8 +152,10 @@ class Fitter(ABC):
                 if max(voxel_data) >= threshold and mask_1d[i_vox]:
                     try:
                         voxel_output = self.proc(voxel_data, *args_1d[i_vox])
-                        for name_, values_ in voxel_output.items():
-                            chunk_output[name_][i_vox_chunk, :] = values_
+                        if len(names) == 1:
+                            voxel_output = (voxel_output,)
+                        for idx, values in enumerate(voxel_output):
+                            chunk_output[names[idx]][i_vox_chunk, :] = values
                     except (ValueError, ArithmeticError):
                         pass  # outputs remain as nan
             return chunk_output
@@ -162,10 +166,10 @@ class Fitter(ABC):
         del data, data_2d, args_1d, mask_1d
 
         # Combine chunks into single output dict
-        outputs = {key: np.concatenate(
-            [co[key] for co in chunk_outputs], axis=0
+        outputs = {name: np.concatenate(
+            [co[name] for co in chunk_outputs], axis=0
         )
-            for key in self.output_info().keys()}
+            for name, is1d_ in self.output_info()}
         del chunk_outputs
 
         # filter outputs
@@ -196,4 +200,6 @@ class Fitter(ABC):
                             os.path.join(dir, f"{prefix}{name}{suffix}.nii"),
                             hdr)
 
-        return outputs
+        return outputs[names[0]] if len(names) == 1 else tuple(outputs[name]
+                                                               for name in
+                                                               names)
