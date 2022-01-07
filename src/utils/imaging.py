@@ -45,8 +45,16 @@ def read_images(images):
 
 
 def write_image(data, filepath, hdr):
+    """Wrapper to save image using nibabel
+
+    Args:
+        data (ndarray): image data
+        filepath (str): path and filename for output image
+        hdr (nibabel header): header template for output image
+    """
     img = nib.nifti1.Nifti1Image(data, None, header=hdr)
     nib.save(img, filepath)
+
 
 def roi_measure(image, mask_image):
     """Return summary statistics for image voxels within a mask.

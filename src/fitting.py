@@ -16,7 +16,7 @@ import nibabel as nib
 import numpy as np
 from joblib import Parallel, delayed
 
-from utils.imaging import read_images
+from utils.imaging import read_images, write_image
 
 
 class Fitter(ABC):
@@ -192,9 +192,8 @@ class Fitter(ABC):
                                  "file to write output images.")
             hdr.set_data_dtype(np.float32)
             for name, values in outputs.items():
-                img = nib.nifti1.Nifti1Image(outputs[name], None, header=hdr)
-                filename = f"{prefix}{name}{suffix}.nii"
-                filepath = os.path.join(dir,filename)
-                nib.save(img, filepath)
+                write_image(outputs[name],
+                            os.path.join(dir, f"{prefix}{name}{suffix}.nii"),
+                            hdr)
 
         return outputs
