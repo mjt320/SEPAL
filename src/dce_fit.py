@@ -44,7 +44,6 @@ class SigToEnh(Fitter):
         """Get output info. Overrides superclass method.
         """
         return ('enh', True),
-        # return {'enh': True}
 
     def proc(self, s):
         """Calculate enhancement time series. Overrides superclass method.
@@ -53,9 +52,7 @@ class SigToEnh(Fitter):
             s (array): 1D signal array
 
         Returns:
-            dict: {'enh': enh}
-                enh (array-like): 1D array of percentage enhancements (%)
-
+            ndarray: 1D array of enhancements (%)
         """
         s_pre = np.mean(s[self.base_idx])
         if s_pre <= 0:
@@ -63,7 +60,6 @@ class SigToEnh(Fitter):
         enh = np.empty(s.shape, dtype=np.float32)
         enh[:] = 100. * ((s - s_pre) / s_pre) if s_pre > 0 else np.nan
         return enh
-        # return {'enh': enh}
 
 
 class EnhToConc(Fitter):
@@ -94,6 +90,8 @@ class EnhToConc(Fitter):
         self.C_samples = np.linspace(C_min, C_max, n_samples)
 
     def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
         return ('C_t', True),
 
     def proc(self, enh, t10, k_fa=1):
@@ -106,9 +104,7 @@ class EnhToConc(Fitter):
             angle). Defaults to 1.
 
         Returns:
-            dict: {'C_t': C_t}
-                C_t (ndarray): 1D array of tissue concentrations (mM)
-
+            ndarray: 1D array of tissue concentrations (mM)
         """
         if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
             raise ValueError(
@@ -130,9 +126,12 @@ class EnhToConc(Fitter):
 
 
 class ConcToPkp(Fitter):
+    """Fit tissue concentrations using pharmacokinetic model.
+
+    Subclass of Fitter.
+    """
     def __init__(self, pk_model, pk_pars_0=None, weights=None):
         """
-
         Args:
             pk_model (pk_model): Pharmacokinetic model used to predict tracer
                 distribution.
@@ -160,23 +159,24 @@ class ConcToPkp(Fitter):
         self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
 
     def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        # outputs are pharmacokinetic parameters + fitted concentration
         return tuple([(name, False) for name in
                       self.pk_model.parameter_names]) + (('Ct_fit', True),)
-        # return {**{name: False for name in self.pk_model.parameter_names},
-        #         'Ct_fit': True}
 
     def proc(self, C_t):
-        """
-
+        """Fit tissue concentration time series. Overrides superclass method.
         Args:
             C_t (ndarray): 1D float array containing tissue concentration
             time series (mM), specifically the mMol of tracer per unit tissue
             volume.
 
         Returns:
-            tuple (pk_par_1, pk_par_2, ..., Ct_fit)
-                pk_par_i (float): fitted parameters
-                Ct_fit (ndarray): best-fit tissue concentration (mM).
+            tuple: (pk_par_1, pk_par_2, ..., Ct_fit)
+            pk_par_i (float): fitted parameters (in the order given in
+                self.pk_model.parameter_names)
+            Ct_fit (ndarray): best-fit tissue concentration (mM).
         """
         result = least_squares_global(self.__residuals, self.x_0_all,
                                       args=(C_t,), method='trf',
@@ -201,11 +201,49 @@ class ConcToPkp(Fitter):
 
 
 class EnhToPKP(Fitter):
-    def __init__(self, hct, pk_model, R10_blood, c_to_r_model, water_ex_model,
+    """Fit tissue enhancement curves using pharmacokinetic model.
+
+    Subclass of Fitter. Fits tissue enhancements for specified combination of
+    relaxivity model, water exchange model, sequence and pharmacokinetic
+    model.
+    Uses the following forward model:
+        pk_model predicts CA concentrations in tissue compartments
+        c_to_r_model estimates relaxation rates in tissue compartments
+        water_ex_model estimates exponential relaxation components
+        signal_model estimates MRI signal
+    R2 and R2* effects neglected.
+    """
+    def __init__(self, hct, pk_model, t10_blood, c_to_r_model, water_ex_model,
                  signal_model, pk_pars_0=None, weights=None):
+        """
+        Args:
+            hct (float): Capillary haematocrit
+            pk_model (pk_model): Pharmacokinetic model used to predict tracer
+                distribution.
+            t10_blood (float): Pre-contrast T1 relaxation rate for capillary
+                blood (s). Used to estimate T10 for each tissue compartment. AIF
+                T10 value is typically used.
+            c_to_r_model (c_to_r_model): Model describing concentration-
+                relaxation relationship.
+            water_ex_model (water_ex_model): Model to predict one or more
+                exponential relaxation components given the relaxation rates for
+                each compartment and water exchange behaviour.
+            signal_model (signal_model): Model descriibing the
+                relaxation-signal relationship.
+            pk_pars_0 (list, optional): List of dicts containing starting
+                values of pharmacokinetic parameters. If there are >1 dicts
+                then the optimisation will be run multiple times and the
+                global minimum used.
+                Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
+                Defaults to values in pk_model.typical_vals.
+            weights (ndarray, optional): 1D float array of weightings to use for
+                sum-of-squares calculation. Can be used to "exclude" data
+                points from optimisation. Defaults to equal weighting for all
+                points.
+        """
         self.hct = hct
         self.pk_model = pk_model
-        self.R10_blood = R10_blood
+        self.t10_blood = t10_blood
         self.c_to_r_model = c_to_r_model
         self.water_ex_model = water_ex_model
         self.signal_model = signal_model
@@ -219,14 +257,29 @@ class EnhToPKP(Fitter):
             self.weights = weights
 
     def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        # outputs are pharmacokinetic parameters + fitted enhancement
         return tuple([(name, False) for name in
                       self.pk_model.parameter_names]) + (('enh_fit', True),)
-        # return {**{name: False for name in self.pk_model.parameter_names},
-        #         'enh_fit': True}
-
 
     def proc(self, enh, k_fa, t10_tissue):
+        """Fit enhancement time series. Overrides superclass method.
 
+    Args:
+        enh (ndarray): 1D float array of enhancement time series (%)
+        k_fa (float): B1 correction factor (actual/nominal flip angle)
+        t10_tissue(float): Pre-contrast T1 relaxation rate for tissue (s)
+
+    Returns
+    -------
+    tuple (pk_pars_opt, Ct_fit)
+        pk_pars_opt : dict of optimal pharmacokinetic parameters,
+            Example: {'vp': 0.1, 'ps': 1e-3, 've': 0.5}
+        enh_fit : 1D ndarray of floats containing best-fit tissue
+            enhancement-time series (%).
+
+    """
         result = least_squares_global(self.__residuals, self.pk_pars_0,
                                       method='trf',
                                       bounds=self.pk_model.bounds,
@@ -241,10 +294,10 @@ class EnhToPKP(Fitter):
 
         # generate optimal parameters (as dict) and predicted enh
         check_ve_vp_sum(pk_pars_opt)
-        enh_fit = pkp_to_enh(pk_pars_opt, hct, k, R10_tissue, R10_blood,
-                             pk_model, c_to_r_model, water_ex_model,
-                             signal_model)
-        enh_fit[weights == 0] = np.nan
+        enh_fit = pkp_to_enh(pk_pars_opt, self.hct, k_fa, t10_tissue,
+                             self.t10_blood, self.pk_model, self.c_to_r_model,
+                             self.water_ex_model, self.signal_model)
+        enh_fit[self.weights == 0] = np.nan
         return pk_pars_opt, enh_fit
 
     def __residuals(self, x, k_fa, t10_tissue, enh):
@@ -253,92 +306,6 @@ class EnhToPKP(Fitter):
                              self.t10_blood, self.pk_model, self.c_to_r_model,
                              self.water_ex_model, self.signal_model)
         return self.weights * (enh_try - enh)
-
-
-def enh_to_pkp(enh, hct, k, t10_tissue, t10_blood, pk_model, c_to_r_model,
-               water_ex_model, signal_model, pk_pars_0=None, weights=None):
-    """Fit signal enhancement curve to obtain pharamacokinetic parameters.
-
-    Any combination of signal, pharmacokinetic, relaxivity and water exchange
-    models may be used.
-
-    Assumptions:
-        -R2 and R2* effects neglected.
-
-    Parameters
-    ----------
-    enh : ndarray
-        1D float array containing enhancement time series (%)
-    hct : float
-        Capillary haematocrit.
-    k : float
-        B1 correction factor (actual/nominal flip angle)
-    t10_tissue : float
-        Pre-contrast T1 relaxation rate for tissue (s)
-    t10_blood : float
-        Pre-contrast T1 relaxation rate for capillary blood (s). Used to
-        estimate T10 for each tissue compartment. AIF T10 value is typically
-        used.
-    pk_model : pk_model
-        Pharmacokinetic model used to predict tracer distribution.
-    c_to_r_model : c_to_r_model
-        Model describing the concentration-relaxation relationship.
-    water_ex_model : water_ex_model
-        Model to predict one or more exponential relaxation components given
-        the relaxation rates for each compartment and water exchange behaviour.
-    signal_model : signal_model
-        Model descriibing the relaxation-signal relationship.
-    pk_pars_0 : list, optional
-        List of dicts containing starting values of pharmacokinetic parameters.
-        If there are >1 dicts then the optimisation will be run multiple times
-        and the global minimum used.
-        Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
-        Defaults to values in pk_model.typical_vals.
-    weights : ndarray, optional
-        1D float array of weightings to use for sum-of-squares calculation.
-        Can be used to "exclude" data points from optimisation.
-        Defaults to equal weighting for all points.
-
-    Returns
-    -------
-    tuple (pk_pars_opt, Ct_fit)
-        pk_pars_opt : dict of optimal pharmacokinetic parameters,
-            Example: {'vp': 0.1, 'ps': 1e-3, 've': 0.5}
-        enh_fit : 1D ndarray of floats containing best-fit tissue
-            enhancement-time series (%).
-
-    """
-    if pk_pars_0 is None:  # get default initial estimates if none provided
-        pk_pars_0 = [pk_model.pkp_dict(pk_model.typical_vals)]
-    if weights is None:
-        weights = np.ones(enh.shape)
-
-    # get initial estimates as array, then scale
-    x_0_all = [pk_model.pkp_array(pars) for pars in pk_pars_0]
-
-    def residuals(x):
-        pk_pars_try = pk_model.pkp_dict(x)
-        enh_try = pkp_to_enh(pk_pars_try, hct, k, R10_tissue, R10_blood,
-                             pk_model, c_to_r_model, water_ex_model,
-                             signal_model)
-        return weights * (enh_try - enh)
-
-    # minimise the cost function
-    result = least_squares_global(residuals, x_0_all, method='trf',
-                                  bounds=pk_model.bounds,
-                                  x_scale=pk_model.typical_vals)
-    if result.success is False:
-        raise ArithmeticError(f'Unable to calculate pharmacokinetic parameters'
-                              f': {result.message}')
-
-    # generate optimal parameters (as dict) and predicted enh
-    pk_pars_opt = pk_model.pkp_dict(result.x)
-    check_ve_vp_sum(pk_pars_opt)
-    enh_fit = pkp_to_enh(pk_pars_opt, hct, k, R10_tissue, R10_blood, pk_model,
-                         c_to_r_model, water_ex_model, signal_model)
-    enh_fit[weights == 0] = np.nan
-
-    return pk_pars_opt, enh_fit
 
 
 def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):

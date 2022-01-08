@@ -37,28 +37,34 @@ class Fitter(ABC):
         signals acquired at different flip angles. Overridden by subclass.
 
         Args:
-            *args: First argument is the data, followed by any other arguments.
+            *args: First argument is the input data, followed by any other
+            arguments.
 
         Returns:
-            dict: dictionary containing output parameters, which should be
-                scalar (e.g. KTrans) or 1D ndarrays (e.g. fitted concentration
-                series).
+            float or tuple: Output parameter(s).
+            If there are >1 outputs, a tuple is returned containing the
+            output parameters, each of which should either be a scalar (e.g.
+            KTrans) or a 1D array (e.g. fitted concentration series).
         """
         pass
 
     @abstractmethod
     def output_info(self):
-        """Abstract method returning output names (dict keys) and dimension.
+        """Abstract method returning output names and types.
 
         Returns:
-             dict: key=parameter name, value=True if 1D, False if scalar
+            tuple: name and type of outputs from fitting
+            each element is a tuple (str, bool) corresponding to an
+            output parameter. str = parameter name. bool = True if
+            parameter is 1D (e.g. a time series), False if parameter is a
+            scalar (e.g. KTrans).
         """
         pass
 
     def proc_image(self, input_images, arg_images=None, mask=None,
                    threshold=-np.inf, dir=".", prefix="", suffix="",
                    filters=None, template=None, n_procs=1):
-        """Process image using subclass proc method.
+        """Process image voxel-by-voxel using subclass proc method.
 
         Args:
             input_images (list): One or more input images to be processed. List
@@ -91,7 +97,10 @@ class Fitter(ABC):
             n_procs (int): Number of processes for parallel computation.
 
         Returns:
-            dict: key=output parameter name, value=ndarray of values
+            array or tuple: Output image(s).
+            If there are >1 outputs, a tuple is returned containing
+            arrays corresponding to the outputs (e.g. KTrans, ve,
+            Ct_fit).
         """
 
         # read source images, e.g. signal-time images
