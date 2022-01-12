@@ -5,8 +5,7 @@ Created 28 September 2020
 @email: m.j.thrippleton@ed.ac.uk
 @institution: University of Edinburgh, UK
 
-Classes: pk_model and associated subclasses
-Functions: interpolate_time_series
+Classes: PkModel and subclasses representing specific models
 """
 
 from abc import ABC, abstractmethod
@@ -15,11 +14,11 @@ import numpy as np
 from scipy.signal import convolve
 
 
-class pk_model(ABC):
+class PkModel(ABC):
     """Abstract base class for pharmacokinetic models.
 
     Subclasses correspond to specific models (e.g. Tofts). The main purpose of
-    a pk_model object is to return tracer concentration as a function of the
+    a PkModel object is to return tracer concentration as a function of the
     model parameters and the AIF. These are calculated by convolving the AIF
     with the impulse response functions (IRF). Both are upsampled to increase
     the precision of the discrete convolution, particularly when formula-based
@@ -29,40 +28,6 @@ class pk_model(ABC):
 
     Future versions may calculate the IRF integral analytically to increase
     accuracy.
-
-    Attributes
-    ----------
-    t : np.ndarray
-        1D array of time points (s) at which concentrations should be
-        calculated, i.e. times corresponding to data points.
-    n : int
-        number of data points
-    aif : aifs.Aif
-        AIF object that will be used to calculate tissue concentrations
-    upsample_factor : int, optional
-        Factor by which data is upsampled in time, relative to the smallest
-        time spacing in self.t.
-    dt_upsample : float
-        Temporal resolution following upsampling (s).
-    n_upsample : int
-        Number of data points following upsampling.
-    tau_upsample : float
-        Time values required by IRF functions (from 0 to t_max-t_min, spacing
-        dt_upsample) (s).
-    fixed_delay : float
-        Fixed delay applied to AIF to account for artery-capillary transit
-        time (s). If set to None, this indicates that AIF delay is a variable
-        parameter and should be supplied as an argument to the conc method.
-    c_ap_upsample : np.ndarray
-        Upsamplede arterial plasma concentration time series (mM).
-        This member variable is only defined if the arterial delay is fixed.
-    parameter_names : tuple
-        Names of variable parameters
-    typical_vals : np.ndarray
-        Typical parameter values as 1D array (e.g. for scaling)
-    bounds : tuple
-        2-tuple giving lower and upper bounds for variable parameters. Refer to
-        documentation for scipy.optimize.least_squares
 
     Class variables
     ---------------
@@ -94,12 +59,12 @@ class pk_model(ABC):
     UPPER_BOUNDS = None
 
     def __init__(self, t, aif, upsample_factor=1, fixed_delay=0, bounds=None):
-        """Construct pk_model object.
+        """Construct PkModel object.
 
         Parameters
         ----------
         t : ndarray
-            1D float array of times at which concentration should be
+            1D float array of times (s) at which concentration should be
             calculated. Normally these are the times at which data points were
             measured. The sequence of times does not have to start at zero.
         aif : aifs.Aif
@@ -110,9 +75,9 @@ class pk_model(ABC):
             time difference between time points is divided by this number.
             The default is 1.
         fixed_delay : float, optional
-            Fixed delay to apply to AIF, reflecting the arterial arrival time.
-            The default is 0. If set to None, the AIF delay is assumed to be
-            a variable parameter.
+            Fixed delay (s) to apply to AIF, reflecting the arterial arrival
+            time. If set to None, the AIF delay is assumed to be a variable
+            parameter. Defaults to 0.
         bounds : tuple, optional
             (lower bounds, upper bounds), where lower/upper bounds are a
             tuple with one element per parameter in the order given by
@@ -158,9 +123,10 @@ class pk_model(ABC):
 
         Parameters
         ----------
-        *pk_pars, **pk_pars_kw : float
+        *pars, **pars_kw : float
             Pharmacokinetic parameters, supplied either as positional arguments
-            (in the order specified in PARAMETERS) or as keyword arguments.
+            (in the order specified in self.parameter_names) or as keyword
+            arguments.
             Possible parameters:
                 vp : blood plasma volume fraction (fraction)
                 ve : extravascular extracellular volume fraction (fraction)
@@ -191,8 +157,8 @@ class pk_model(ABC):
 
         # Calculate IRF (using subclass implementation)
         irf_cp, irf_e = self.irf(*pars, **pars_kw)
-        irf_cp[[0, -1]] /= 2
-        irf_e[[0, -1]] /= 2
+        irf_cp[[0]] /= 2
+        irf_e[[0]] /= 2
 
         # Do the convolution to get C at every upsampled time point, then
         # interpolate to get C at the measured time points.
@@ -211,7 +177,7 @@ class pk_model(ABC):
         return C_t, C_cp, C_e
 
     @abstractmethod
-    def irf(self):
+    def irf(self, *args, **kwargs):
         """Get IRF. Method is overriden in subclasses for specific models."""
         pass
 
@@ -227,7 +193,7 @@ class pk_model(ABC):
         -------
         TYPE : ndarray
             1D array of pharmacokinetic parameters in the order specified by
-            PARAMETERS. Irrelevant input parameters are ignored.
+            self.parameter_names. Irrelevant input parameters are ignored.
 
         """
         return np.array([pkp_dict[p] for p in self.parameter_names])
@@ -239,7 +205,7 @@ class pk_model(ABC):
         ----------
         pkp_array : ndarray
             1D array of pharmacokinetic parameters in the order specified by
-            PARAMETERS.
+            self.parameter_names.
 
         Returns
         -------
@@ -251,7 +217,7 @@ class pk_model(ABC):
         pass
 
 
-class steady_state_vp(pk_model):
+class SteadyStateVp(PkModel):
     """Steady-state vp model subclass.
 
     Tracer is confined to a single blood plasma compartment with same
@@ -276,7 +242,7 @@ class steady_state_vp(pk_model):
         return irf_cp, irf_e
 
 
-class patlak(pk_model):
+class Patlak(PkModel):
     """Patlak model subclass.
 
     Tracer is present in the blood plasma compartment with same concentration
@@ -301,7 +267,7 @@ class patlak(pk_model):
         return irf_cp, irf_e
 
 
-class extended_tofts(pk_model):
+class ExtendedTofts(PkModel):
     """Extended tofts model subclass.
 
     Tracer is present in the blood plasma compartment with same concentration
@@ -326,7 +292,7 @@ class extended_tofts(pk_model):
         return irf_cp, irf_e
 
 
-class tcum(pk_model):
+class TCUM(PkModel):
     """Two-compartment uptake model subclass.
 
     Tracer flows from AIF to the blood plasma compartment; one-way leakage
@@ -355,7 +321,7 @@ class tcum(pk_model):
         return irf_cp, irf_e
 
 
-class tcxm(pk_model):
+class TCXM(PkModel):
     """Two-compartment exchange model subclass.
 
     Tracer flows from AIF to the blood plasma compartment; two-way leakage
@@ -384,18 +350,18 @@ class tcxm(pk_model):
         # calculate irf for capillary plasma
         irf_cp = vp * sig_p * sig_n * (
                 (1 - te * sig_n) * np.exp(-self.tau_upsample * sig_n) + (
-                te * sig_p - 1.) * np.exp(-self.tau_upsample * sig_p)) / (
+                    te * sig_p - 1.) * np.exp(-self.tau_upsample * sig_p)) / (
                          sig_p - sig_n)
 
         # calculate irf for the EES
         irf_e = ve * sig_p * sig_n * (
                 np.exp(-self.tau_upsample * sig_n) - np.exp(
-            -self.tau_upsample * sig_p)) / (sig_p - sig_n)
+                    -self.tau_upsample * sig_p)) / (sig_p - sig_n)
 
         return irf_cp, irf_e
 
 
-class tofts(pk_model):
+class Tofts(PkModel):
     """Tofts model subclass.
 
     Tracer flows from AIF to the EES via a negligible blood plasma compartment;

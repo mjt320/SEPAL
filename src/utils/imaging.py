@@ -7,6 +7,7 @@ Created 6 October 2021
 
 Functions:
     read_images
+    write_image
     roi_measure
 """
 
@@ -17,11 +18,12 @@ import numpy as np
 def read_images(images):
     """Read and combine array or nifti images.
 
-    A list of input images is concatenated along a new dimension.
+    Read one or more images. If there are >1 images, they are concatenated
+    along a new dimension.
 
     Args:
         images (list): List of ndarrays containing image data
-            or str indicating nifti image paths.
+            or strs indicating nifti image paths.
 
     Returns:
         tuple: (data, header)
@@ -57,12 +59,12 @@ def write_image(data, filepath, hdr):
 
 
 def roi_measure(image, mask_image):
-    """Return summary statistics for image voxels within a mask.
+    """Calculate statistics for voxels within a mask.
 
     If the image has the same shape as the mask image, a single set of
     statistics is returned. If the image has one additional dimension (
-    e.g. because it is a time series) then a series of values are returned
-    corresponding to location in the last dimension.
+    e.g. a time series) then a series of values are returned corresponding to
+    locations in the last dimension.
 
     Args:
         image (list, str, ndarray): Array containing input image data or str

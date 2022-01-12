@@ -5,15 +5,15 @@ Created 28 September 2020
 @email: m.j.thrippleton@ed.ac.uk
 @institution: University of Edinburgh, UK
 
-Classes: signal_model and derived subclasses:
-    spgr
+Classes: SignalModel and derived subclasses:
+    SPGR
 """
 
 from abc import ABC, abstractmethod
 import numpy as np
 
 
-class signal_model(ABC):
+class SignalModel(ABC):
     """Abstract base class for signal models.
 
     Subclasses correspond to specific signal models (e.g. SPGR). The purpose of
@@ -23,9 +23,6 @@ class signal_model(ABC):
     The class attributes are the acquisition parameters and are determined by
     the subclass.
 
-    Methods
-    -------
-    R_to_s(s0, R1, R2, R2s, k): get the signal
     """
 
     @abstractmethod
@@ -53,20 +50,19 @@ class signal_model(ABC):
         pass
 
 
-class spgr(signal_model):
+class SPGR(SignalModel):
     """Signal model subclass for spoiled gradient echo pulse sequence.
 
-    Attributes
-    ----------
-    tr : float
-        repetition time (s)
-    fa : float
-         flip angle (deg)
-    te : float
-        echo time (s)
     """
 
     def __init__(self, tr, fa, te):
+        """
+
+        Args:
+            tr (float): repetition time (s)
+            fa (float): flip angle (deg)
+            te (float): echo time (s)
+        """
         self.tr = tr
         self.fa = fa
         self.te = te

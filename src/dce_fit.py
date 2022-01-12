@@ -9,17 +9,17 @@ Classes:
     SigToEnh
     EnhToConc
     ConcToPkp
+    EnhToPkp
 
 Functions:
     conc_to_enh
-    enh_to_pkp
     pkp_to_enh
     volume_fractions
-    minimize_global
+    check_ve_vp_sum
 """
 
 import numpy as np
-from scipy.signal import argrelextrema, find_peaks
+from scipy.signal import argrelextrema
 from scipy.interpolate import interp1d
 from fitting import Fitter
 from utils.utilities import least_squares_global
@@ -75,9 +75,9 @@ class EnhToConc(Fitter):
         """
 
         Args:
-            c_to_r_model (c_to_r_model): concentration to relaxation
+            c_to_r_model (CRModel): concentration to relaxation
                 relationship
-            signal_model (signal_model): relaxation to signal relationship
+            signal_model (SignalModel): relaxation to signal relationship
             C_min (float, optional): minimum value of concentration to look for
             C_max (float, optional): maximum value of concentration to look for
             n_samples (int, optional): number of points to sample the enh-conc
@@ -133,14 +133,14 @@ class ConcToPkp(Fitter):
     def __init__(self, pk_model, pk_pars_0=None, weights=None):
         """
         Args:
-            pk_model (pk_model): Pharmacokinetic model used to predict tracer
+            pk_model (PkModel): Pharmacokinetic model used to predict tracer
                 distribution.
             pk_pars_0 (list, optional): list of dicts containing starting values
                 of pharmacokinetic parameters. If there are >1 dicts then the
                 optimisation will be run multiple times and the global minimum
                 used.
                 Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
-                Defaults to values in pk_model.typical_vals.
+                Defaults to values in PkModel.typical_vals.
             weights (ndarray, optional): 1D float array of weightings to use
                 for sum-of-squares calculation. Can be used to "exclude" data
                 points from optimisation. Defaults to equal weighting for all
@@ -175,9 +175,11 @@ class ConcToPkp(Fitter):
         Returns:
             tuple: (pk_par_1, pk_par_2, ..., Ct_fit)
             pk_par_i (float): fitted parameters (in the order given in
-                self.pk_model.parameter_names)
+                self.PkModel.parameter_names)
             Ct_fit (ndarray): best-fit tissue concentration (mM).
         """
+        if any(np.isnan(C_t)):
+            raise ValueError(f'Unable to fit model: nan arguments received.')
         result = least_squares_global(self.__residuals, self.x_0_all,
                                       args=(C_t,), method='trf',
                                       bounds=self.pk_model.bounds,
@@ -186,13 +188,11 @@ class ConcToPkp(Fitter):
             raise ArithmeticError(
                 f'Unable to calculate pharmacokinetic parameters'
                 f': {result.message}')
-        pk_pars_opt = self.pk_model.pkp_dict(
-            result.x)  # convert parameters to dict
+        pk_pars_opt = self.pk_model.pkp_dict(result.x)
         check_ve_vp_sum(pk_pars_opt)
         Ct_fit, _C_cp, _C_e = self.pk_model.conc(*result.x)
         Ct_fit[self.weights == 0] = np.nan
         return tuple(result.x) + (Ct_fit,)
-        # return {**pk_pars_opt, 'Ct_fit': Ct_fit}
 
     def __residuals(self, x, C_t):
         C_t_try, _C_cp, _C_e = self.pk_model.conc(*x)
@@ -207,10 +207,10 @@ class EnhToPKP(Fitter):
     relaxivity model, water exchange model, sequence and pharmacokinetic
     model.
     Uses the following forward model:
-        pk_model predicts CA concentrations in tissue compartments
-        c_to_r_model estimates relaxation rates in tissue compartments
-        water_ex_model estimates exponential relaxation components
-        signal_model estimates MRI signal
+        PkModel predicts CA concentrations in tissue compartments
+        CRModel estimates relaxation rates in tissue compartments
+        WaterExModel estimates exponential relaxation components
+        SignalModel estimates MRI signal
     R2 and R2* effects neglected.
     """
     def __init__(self, hct, pk_model, t10_blood, c_to_r_model, water_ex_model,
@@ -218,24 +218,24 @@ class EnhToPKP(Fitter):
         """
         Args:
             hct (float): Capillary haematocrit
-            pk_model (pk_model): Pharmacokinetic model used to predict tracer
+            pk_model (PkModel): Pharmacokinetic model used to predict tracer
                 distribution.
             t10_blood (float): Pre-contrast T1 relaxation rate for capillary
                 blood (s). Used to estimate T10 for each tissue compartment. AIF
                 T10 value is typically used.
-            c_to_r_model (c_to_r_model): Model describing concentration-
+            c_to_r_model (CRModel): Model describing concentration-
                 relaxation relationship.
-            water_ex_model (water_ex_model): Model to predict one or more
+            water_ex_model (WaterExModel): Model to predict one or more
                 exponential relaxation components given the relaxation rates for
                 each compartment and water exchange behaviour.
-            signal_model (signal_model): Model descriibing the
+            signal_model (SignalModel): Model descriibing the
                 relaxation-signal relationship.
             pk_pars_0 (list, optional): List of dicts containing starting
                 values of pharmacokinetic parameters. If there are >1 dicts
                 then the optimisation will be run multiple times and the
                 global minimum used.
                 Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
-                Defaults to values in pk_model.typical_vals.
+                Defaults to values in PkModel.typical_vals.
             weights (ndarray, optional): 1D float array of weightings to use for
                 sum-of-squares calculation. Can be used to "exclude" data
                 points from optimisation. Defaults to equal weighting for all
@@ -280,19 +280,17 @@ class EnhToPKP(Fitter):
             enhancement-time series (%).
 
     """
+        if any(np.isnan(enh)) or np.isnan(t10_tissue) or np.isnan(k_fa):
+            raise ValueError(f'Unable to fit model: nan arguments received.')
         result = least_squares_global(self.__residuals, self.pk_pars_0,
                                       method='trf',
                                       bounds=self.pk_model.bounds,
                                       x_scale=self.pk_model.typical_vals)
-        # TODO: continue from here
-        # minimise the cost function
         if result.success is False:
             raise ArithmeticError(
                 f'Unable to calculate pharmacokinetic parameters'
                 f': {result.message}')
-        pk_pars_opt = pk_model.pkp_dict(result.x)
-
-        # generate optimal parameters (as dict) and predicted enh
+        pk_pars_opt = self.pk_model.pkp_dict(result.x)
         check_ve_vp_sum(pk_pars_opt)
         enh_fit = pkp_to_enh(pk_pars_opt, self.hct, k_fa, t10_tissue,
                              self.t10_blood, self.pk_model, self.c_to_r_model,
@@ -326,9 +324,9 @@ def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
         B1 correction factor (actual/nominal flip angle)
     t10 : float
         Pre-contrast R1 relaxation rate (s^-1)
-    c_to_r_model : c_to_r_model
+    c_to_r_model : CRModel
         Model describing the concentration-relaxation relationship.
-    signal_model : signal_model
+    signal_model : SignalModel
         Model descriibing the relaxation-signal relationship.
 
     Returns
@@ -375,14 +373,14 @@ def pkp_to_enh(pk_pars, hct, k_fa, t10_tissue, t10_blood, pk_model,
         Pre-contrast t1 relaxation rate for capillary blood (s). Used to
         estimate t10 for each tissue compartment. AIF t10 value is typically
         used.
-    pk_model : pk_model
+    pk_model : PkModel
         Pharmacokinetic model used to predict tracer distribution.
-    c_to_r_model : c_to_r_model
+    c_to_r_model : CRModel
         Model describing the concentration-relaxation relationship.
-    water_ex_model : water_ex_model
+    water_ex_model : WaterExModel
         Model to predict one or more exponential relaxation components given
         the relaxation rates for each compartment and water exchange behaviour.
-    signal_model : signal_model
+    signal_model : SignalModel
         Model descriibing the relaxation-signal relationship.
 
     Returns
@@ -422,7 +420,6 @@ def pkp_to_enh(pk_pars, hct, k_fa, t10_tissue, t10_blood, pk_model,
         [p_c * signal_model.R_to_s(1, R1_components[i], k=k_fa) for i, p_c in
          enumerate(p_components)], 0)
     enh = 100. * (s_post - s_pre) / s_pre
-
     return enh
 
 
@@ -431,11 +428,11 @@ def volume_fractions(pk_pars, hct):
 
     Calculates a complete set of tissue volume fractions, including any not
     specified by the pharmacokinetic model.
-    Example 1: The Tofts model does not specify vp, therefore assuming the
-    original "weakly vascularised" interpretation, vb = 0 and
+    Example 1: The Tofts model does not specify vp, therefore (assuming the
+    original "weakly vascularised" interpretation of the model), vb = 0 and
     vi = 1 - ve
     Example 2: The Patlak model does not specify ve, just a single
-    extravascular compartment with ve = 1 - vb and vi = 0.
+    extravascular compartment with ve = 1 - vb. Implicitly, vi = 0.
 
     Assumptions:
         This function encodes a set of assumptions required to predict
@@ -477,6 +474,17 @@ def volume_fractions(pk_pars, hct):
 
 
 def check_ve_vp_sum(pk_pars):
+    """Check that ve+vp <= 1.
+
+    Although this constraint could be implemented by the fitting algorithm,
+    this would mean using a slower algorithm.
+
+    Args:
+        pk_pars (dict): Pharmacokinetic parameters.
+            Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}].
+    Raises:
+        ValueError: if pk_pars inculdes vp and ve, and their sum is > 1
+    """
     # check vp + ve <= 1
     if (('vp' in pk_pars) and ('ve' in pk_pars)) and (
             pk_pars['vp'] + pk_pars['ve'] > 1):

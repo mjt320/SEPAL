@@ -58,19 +58,17 @@ class PatientSpecific(Aif):
     Constructed using time-concentration data, typically obtained from
     experimental measurements. The c_ap method returns AIF
     concentration at any requested time points using interpolation.
-
-    Attributes
-    ----------
-    t_data : ndarray
-        1D float array of time points (s) at which AIF concentration data are
-        provided
-    c_ap_data : ndarray
-        1D float array of concentration data (mM)
-    c_ap_func : interp1d
-        interpolation function to generate AIF concentration
     """
 
     def __init__(self, t_data, c_ap_data):
+        """
+
+        Args:
+            t_data (ndarray): 1D float array of time points (s) at which
+                input AIF concentration data are provided
+            c_ap_data (ndarray): 1D float array of input concentration data (
+            mM).
+        """
         self.t_data = t_data
         self.c_ap_data = c_ap_data
         self.c_ap_func = interp1d(t_data, c_ap_data,
@@ -90,21 +88,24 @@ class ParkerLike(Aif):
     Generate AIF concentrations using a mathematical function that is based
     on the Parker population-average function but with two exponential terms.
     Parameters default to the original Parker function.
-
-    Attributes
-    ----------
-    hct : float
-        Arterial haematocrit
-    a1, a2, t1, t2, sigma1, sigma2, s, tau, alpha, beta, alpha2, beta2 : float
-        AIF function parameters
-    t_start : float
-        Start time (s). The AIF function is time-shifted by this delay.
     """
 
     def __init__(self, hct, a1=0.809, a2=0.330, t1=0.17046, t2=0.365,
                  sigma1=0.0563, sigma2=0.132, s=38.078, tau=0.483,
                  alpha=0, beta=0, alpha2=1.050, beta2=0.1685, scale_factor=1,
                  t_start=0):
+        """
+
+        Args:
+            hct (float): Arterial haematocrit
+            a1, a2, t1, t2, sigma1, sigma2, s, tau, alpha, beta, alpha2,
+                beta2 (float): AIF function parameters. Default to original
+                Parker function values.
+            scale_factor (float): Scale factor applied to AIF curve. Defaults to
+                1.
+            t_start (float): Start time (s). The AIF function is time-shifted by
+                this delay. Defaults to 0.
+        """
         self.a1, self.a2, self.t1, self.t2 = a1, a2, t1, t2
         self.sigma1, self.sigma2, self.s, self.tau = sigma1, sigma2, s, tau
         self.alpha, self.alpha2 = alpha, alpha2
@@ -138,17 +139,16 @@ class Parker(ParkerLike):
     Reference: Parker et al., Magnetic Resonance in Medicine, 2006
     https://doi.org/10.1002/mrm.21066
 
-    Attributes
-    ----------
-    hct : float
-        Arterial haematocrit
-    a1, a2, t1, t2, sigma1, sigma2, s, tau, alpha, beta, alpha2, beta2 : float
-        AIF function parameters
-    t_start : float
-        Start time (s). The AIF function is time-shifted by this delay.
     """
 
     def __init__(self, hct, t_start=0):
+        """
+
+        Args:
+            hct (float): Arterial haematocrit
+            t_start (float): Start time (s). The AIF function is time-shifted by
+                this delay. Defaults to 0.
+        """
         super().__init__(hct, t_start=t_start)
 
 
@@ -161,17 +161,16 @@ class ManningFast(ParkerLike):
     Reference: Manning et al., Magnetic Resonance in Medicine, 2021
     https://doi.org/10.1002/mrm.28833
 
-    Attributes
-    ----------
-    hct : float
-        Arterial haematocrit
-    a1, a2, t1, t2, sigma1, sigma2, s, tau, alpha, beta, alpha2, beta2 : float
-        AIF function parameters
-    t_start : float
-        Start time (s). The AIF function is time-shifted by this delay.
     """
 
     def __init__(self, hct=0.42, t_start=0):
+        """
+
+        Args:
+            hct (float): Arterial haematocrit. Defaults to 0.42
+            t_start (float): Start time (s). The AIF function is time-shifted by
+                this delay. Defaults to 0.
+        """
         super().__init__(hct, alpha=0.246, alpha2=0.765, beta=0.180,
                          beta2=0.0240, scale_factor=0.89, t_start=t_start)
 
@@ -184,15 +183,6 @@ class ManningSlow(PatientSpecific):
     Reference: Manning et al., Magnetic Resonance in Medicine, 2021
     https://doi.org/10.1002/mrm.28833
 
-    Attributes
-    ----------
-    t_data : ndarray
-        1D float array of time points (s) at which AIF concentration data are
-        provided
-    c_ap_data : ndarray
-        1D float array of concentration data (mM)
-    c_ap_func : interp1d
-        interpolation function to generate AIF concentration
     """
 
     def __init__(self):
@@ -224,16 +214,15 @@ class Heye(ParkerLike):
     Reference: Heye et al., Neuroimage (2016)
     https://doi.org/10.1016/j.neuroimage.2015.10.018
 
-    Attributes
-    ----------
-    hct : float
-        Arterial haematocrit
-    a1, a2, t1, t2, sigma1, sigma2, s, tau, alpha, beta, alpha2, beta2 : float
-        AIF function parameters
-    t_start : float
-        Start time (s). The AIF function is time-shifted by this delay.
     """
 
     def __init__(self, hct=0.45, t_start=0):
+        """
+
+        Args:
+            hct (float): Arterial haematocrit. Defaults to 0.45
+            t_start (float): Start time (s). The AIF function is time-shifted by
+                this delay. Defaults to 0.
+        """
         super().__init__(hct, alpha=3.1671, alpha2=0.5628, beta=1.0165,
                          beta2=0.0266, scale_factor=1, t_start=t_start)
