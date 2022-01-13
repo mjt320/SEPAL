@@ -36,7 +36,7 @@ class VFA2Points(Fitter):
         """
         self.fa = np.asarray(fa)
         self.tr = tr
-        self.fa_rad = np.pi*self.fa/180
+        self.fa_rad = np.pi * self.fa / 180
 
     def output_info(self):
         """Get output info. Overrides superclass method.
@@ -60,11 +60,11 @@ class VFA2Points(Fitter):
             fa_true = k_fa * self.fa_rad
             sr = s[0] / s[1]
             t1 = self.tr / np.log(
-                (sr*np.sin(fa_true[1])*np.cos(fa_true[0]) -
-                 np.sin(fa_true[0])*np.cos(fa_true[1])) /
-                (sr*np.sin(fa_true[1]) - np.sin(fa_true[0])))
-            s0 = s[0] * ((1-np.exp(-self.tr/t1)*np.cos(fa_true[0])) /
-                         ((1-np.exp(-self.tr/t1))*np.sin(fa_true[0])))
+                (sr * np.sin(fa_true[1]) * np.cos(fa_true[0]) -
+                 np.sin(fa_true[0]) * np.cos(fa_true[1])) /
+                (sr * np.sin(fa_true[1]) - np.sin(fa_true[0])))
+            s0 = s[0] * ((1 - np.exp(-self.tr / t1) * np.cos(fa_true[0])) /
+                         ((1 - np.exp(-self.tr / t1)) * np.sin(fa_true[0])))
 
         if ~np.isreal(t1) | (t1 <= 0) | np.isinf(t1) | (s0 <= 0) | np.isinf(s0):
             raise ValueError('T1 estimation failed.')
@@ -87,7 +87,7 @@ class VFALinear(Fitter):
         """
         self.fa = np.asarray(fa)
         self.tr = tr
-        self.fa_rad = np.pi*self.fa/180
+        self.fa_rad = np.pi * self.fa / 180
 
     def output_info(self):
         """Get output info. Overrides superclass method.
@@ -116,7 +116,7 @@ class VFALinear(Fitter):
         if (intercept < 0) or ~(0. < slope < 1.):
             raise ValueError('T1 estimation failed.')
 
-        t1, s0 = -self.tr/np.log(slope), intercept/(1-slope)
+        t1, s0 = -self.tr / np.log(slope), intercept / (1 - slope)
 
         return s0, t1
 
@@ -126,6 +126,7 @@ class VFANonLinear(Fitter):
 
     Subclass of Fitter.
     """
+
     def __init__(self, fa, tr):
         """
 
@@ -135,7 +136,7 @@ class VFANonLinear(Fitter):
         """
         self.fa = np.asarray(fa)
         self.tr = tr
-        self.fa_rad = np.pi*self.fa/180
+        self.fa_rad = np.pi * self.fa / 180
         self.linear_fitter = VFALinear(fa, tr)
 
     def output_info(self):
@@ -160,7 +161,7 @@ class VFANonLinear(Fitter):
         try:
             x0 = np.array(self.linear_fitter.proc(s, k_fa=k_fa))
         except ValueError:
-            x0 = np.array([s[0] / spgr_signal(1., 1., self.tr, k_fa*self.fa[
+            x0 = np.array([s[0] / spgr_signal(1., 1., self.tr, k_fa * self.fa[
                 0]), 1.])
 
         result = least_squares(self.__residuals, x0, args=(s, k_fa), bounds=(
@@ -174,12 +175,40 @@ class VFANonLinear(Fitter):
 
     def __residuals(self, x, s, k_fa):
         s0, t1 = x
-        s_est = spgr_signal(s0, t1, self.tr, k_fa*self.fa)
+        s_est = spgr_signal(s0, t1, self.tr, k_fa * self.fa)
         return s - s_est
 
 
-class hifi(Fitter):
+class HIFI(Fitter):
+    """DESPOT1-HIFI T1 estimation.
+
+    Subclass of Fitter.
+    Note: perfect inversion is assumed for IR-SPGR signals.
+    """
+
     def __init__(self, esp, ti, n, b, td, centre):
+        """
+
+        Args:
+            esp (ndarray):  Echo spacings (s, 1 float per acquisition).
+                Equivalent to TR for SPGR scans.
+            ti (ndarray): Inversion times (s, 1 per acquisition). Note this
+                is the actual time delay between the inversion pulse and the
+                start of the echo train. The effective TI may be different,
+                e.g for linear phase encoding of the echo train. For SPGR,
+                set values to np.nan.
+            n (ndarray): Number of excitation pulses per inversion pulse (1
+                int value per acquisition). For SPGR, set values to np.nan.
+            b (ndarray): Excitation flip angles (deg, 1 float per acquisition).
+            td (ndarray): Delay between readout train and next inversion
+                pulse (s, 1 float per acquisition). For SPGR, set values to
+                np.nan.
+            centre (ndarray): Times in readout train when centre of k-space
+                is acquired, expressed as a fraction of the readout duration.
+                e.g. = 0 for centric phase encoding, = 0.5 for linear phase
+                encoding (float, 1 per acquisition). For SPGR, set values to
+                np.nan.
+        """
         self.esp = esp
         self.ti = ti
         self.n = n
@@ -196,7 +225,27 @@ class hifi(Fitter):
             np.isclose(esp[self.idx_spgr], esp[self.idx_spgr[0]]))
         self.linear_fitter = VFALinear(b[self.is_spgr], esp[self.idx_spgr[0]])
 
+    def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        return ('s0', False), ('t1', False), ('k_fa', False), ('s_opt', True)
+
     def proc(self, s, k_fa_fixed=None):
+        """Estimate T1 and k_fa. Overrides superclass method.
+
+        Args:
+            s (ndarray): 1D array containing the signals
+            k_fa_fixed (float): Value to which k_fa (actual/nominal flip
+                angle) is fixed. If set to None (default) then the value of k_fa
+                is optimised.
+
+        Returns:
+            tuple: s0, t1, k_fa, s_opt
+                s0 (float): fully T1-relaxed signal
+                t1 (float): T1 (s)
+                k_fa (float): flip angle correction factor
+                s_opt (ndarray): fitted signal intensities
+        """
         # First get a quick linear T1 estimate
         if self.get_linear_estimate:  # If >1 SPGR, use linear VFA fit
             result_lin = self.linear_fitter.proc(s[self.is_spgr])
@@ -205,19 +254,26 @@ class hifi(Fitter):
             else:  # if result invalid, assume T1=1
                 t1_init = 1
                 s0_init = s[self.idx_spgr[0]] / spgr_signal(1, t1_init,
-                                                   self.esp[self.idx_spgr[0]],
-                                                   self.b[self.idx_spgr[0]])
+                                                            self.esp[
+                                                                self.idx_spgr[
+                                                                    0]],
+                                                            self.b[
+                                                                self.idx_spgr[
+                                                                    0]])
         # If 1 SPGR scan, assume T1=1 and estimate s0 based on 1st SPGR scan
         elif self.n_spgr == 1:
             t1_init = 1
             s0_init = s[self.idx_spgr[0]] / spgr_signal(1, t1_init,
-                                               self.esp[self.idx_spgr[0]],
-                                               self.b[self.idx_spgr[0]])
+                                                        self.esp[
+                                                            self.idx_spgr[0]],
+                                                        self.b[
+                                                            self.idx_spgr[0]])
         # If 0 SPGR scans, assume T1=1 and estimate s0 based on 1st scan
         else:
             t1_init = 1
-            s0_init = s[0] / irspgr_signal(1, t1_init, self.esp[0], self.ti[0], self.n[0], self.b[0],
-                                       180, self.td[0], self.centre[0])
+            s0_init = s[0] / irspgr_signal(1, t1_init, self.esp[0], self.ti[0],
+                                           self.n[0], self.b[0], self.td[0],
+                                           self.centre[0])
         # Now do a non-linear fit using all scans
         if k_fa_fixed is None:
             k_init = 1
@@ -226,25 +282,29 @@ class hifi(Fitter):
             k_init = k_fa_fixed
             bounds = ([0, 0, 1], [np.inf, np.inf, 1])
         x_0 = np.array([t1_init, s0_init, k_init])
-        result = least_squares(self.__residuals, x_0, args=(s,), bounds=bounds, method='trf',
-                           x_scale=(t1_init, s0_init, k_init)
-                           )
+        result = least_squares(self.__residuals, x_0, args=(s,), bounds=bounds,
+                               method='trf',
+                               x_scale=(t1_init, s0_init, k_init)
+                               )
         x_opt = result.x if result.success else (np.nan, np.nan, np.nan)
-        t1_opt, s0_opt, k_fa_opt = x_opt
+        t1, s0, k_fa = x_opt
         s_opt = self.__signal(x_opt)
-        return {'t1': t1_opt, 's0': s0_opt, 'k_fa': k_fa_opt, 's_opt': s_opt}
+        return s0, t1, k_fa, s_opt
 
     def __residuals(self, x, s):
         return s - self.__signal(x)
 
     def __signal(self, x):
+        # calculate signal for all of the (IR-)SPGR scans
         t1, s0, k_fa = x
         s = np.zeros(self.n_scans)
-        s[self.is_ir] = irspgr_signal(s0, t1, self.esp[self.is_ir], self.ti[self.is_ir],
-                                     self.n[self.is_ir], k_fa*self.b[self.is_ir], self.td[self.is_ir],
-                                     self.centre[self.is_ir])
+        s[self.is_ir] = irspgr_signal(s0, t1, self.esp[self.is_ir],
+                                      self.ti[self.is_ir], self.n[self.is_ir],
+                                      k_fa * self.b[self.is_ir],
+                                      self.td[self.is_ir],
+                                      self.centre[self.is_ir])
         s[self.is_spgr] = spgr_signal(s0, t1, self.esp[self.is_spgr],
-                                     k_fa*self.b[self.is_spgr])
+                                      k_fa * self.b[self.is_spgr])
         return s
 
 
@@ -267,16 +327,15 @@ def spgr_signal(s0, t1, tr, fa):
         s : float
             Steady-state SPGR signal.
     """
-    fa_rad = np.pi*fa/180
+    fa_rad = np.pi * fa / 180
 
-    e = np.exp(-tr/t1)
-    s = s0 * (((1-e)*np.sin(fa_rad)) /
-              (1-e*np.cos(fa_rad)))
+    e = np.exp(-tr / t1)
+    s = s0 * (((1 - e) * np.sin(fa_rad)) / (1 - e * np.cos(fa_rad)))
 
     return s
 
 
-def irspgr_signal(s0, t1, esp, ti, n, b, td=0, centre=0.5):
+def irspgr_signal(s0, t1, esp, ti, n, b, td, centre):
     """Return signal for IR-SPGR sequence.
 
     Uses formula by Deichmann et al. (2000) to account for modified
@@ -311,25 +370,24 @@ def irspgr_signal(s0, t1, esp, ti, n, b, td=0, centre=0.5):
         s : float
             Steady-state IR-SPGR signal.
     """
-    b_rad = np.pi*b/180
+    b_rad = np.pi * b / 180
     tau = esp * n
-    t1_star = 1/(1/t1 - 1/esp*np.log(np.cos(b_rad)))
-    m0_star = s0 * ((1-np.exp(-esp/t1)) / (1-np.exp(-esp/t1_star)))
+    t1_star = 1 / (1 / t1 - 1 / esp * np.log(np.cos(b_rad)))
+    m0_star = s0 * ((1 - np.exp(-esp / t1)) / (1 - np.exp(-esp / t1_star)))
 
-    r1 = -tau/t1_star
+    r1 = -tau / t1_star
     e1 = np.exp(r1)
-    e2 = np.exp(-td/t1)
-    e3 = np.exp(-ti/t1)
+    e2 = np.exp(-td / t1)
+    e3 = np.exp(-ti / t1)
 
-    a1 = m0_star * (1-e1)
+    a1 = m0_star * (1 - e1)
     a2 = s0 * (1 - e2)
     a3 = s0 * (1 - e3)
 
-    a = a3 - a2*e3 - a1*e2*e3
-    b = -e1*e2*e3
+    a = a3 - a2 * e3 - a1 * e2 * e3
+    b = -e1 * e2 * e3
 
-    m1 = a/(1-b)
+    m1 = a / (1 - b)
 
-    s = np.abs((
-        m0_star + (m1-m0_star)*np.exp(centre*r1))*np.sin(b_rad))
+    s = np.abs((m0_star + (m1 - m0_star) * np.exp(centre * r1)) * np.sin(b_rad))
     return s
