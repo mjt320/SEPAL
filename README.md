@@ -33,7 +33,6 @@ Created 28 September 2020
 - Special model implementations, e.g. linear and graphical versions of Patlak model
 
 ### TODO:
-- Convert other fitting functions to OO methods. Add image processing functions.
 - Handle nans etc.
 - Update docstrings and notebooks
 - linear Patlak model
