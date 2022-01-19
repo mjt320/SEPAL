@@ -258,6 +258,8 @@ class EnhToPKP(Fitter):
             self.weights = np.ones(pk_model.n)
         else:
             self.weights = weights
+        # Convert initial pars from list of dicts to list of arrays
+        self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
 
     def output_info(self):
         """Get output info. Overrides superclass method.
@@ -285,7 +287,8 @@ class EnhToPKP(Fitter):
     """
         if any(np.isnan(enh)) or np.isnan(t10_tissue) or np.isnan(k_fa):
             raise ValueError(f'Unable to fit model: nan arguments received.')
-        result = least_squares_global(self.__residuals, self.pk_pars_0,
+        result = least_squares_global(self.__residuals, self.x_0_all,
+                                      args=(k_fa, t10_tissue, enh),
                                       method='trf',
                                       bounds=self.pk_model.bounds,
                                       x_scale=self.pk_model.typical_vals)
@@ -299,7 +302,7 @@ class EnhToPKP(Fitter):
                              self.t10_blood, self.pk_model, self.c_to_r_model,
                              self.water_ex_model, self.signal_model)
         enh_fit[self.weights == 0] = np.nan
-        return pk_pars_opt, enh_fit
+        return tuple(result.x) + (enh_fit,)
 
     def __residuals(self, x, k_fa, t10_tissue, enh):
         pk_pars_try = self.pk_model.pkp_dict(x)
@@ -492,4 +495,4 @@ def check_ve_vp_sum(pk_pars):
     if (('vp' in pk_pars) and ('ve' in pk_pars)) and (
             pk_pars['vp'] + pk_pars['ve'] > 1):
         v_tot = pk_pars['vp'] + pk_pars['ve']
-        raise ValueError(f'vp + ve = {v_tot}!')
+        raise ArithmeticError(f'vp + ve = {v_tot}!')
