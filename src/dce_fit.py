@@ -54,6 +54,9 @@ class SigToEnh(Fitter):
         Returns:
             ndarray: 1D array of enhancements (%)
         """
+        if any(np.isnan(s)):
+            raise ValueError(
+                f'Unable to calculate enhancements: nan arguments received.')
         s_pre = np.mean(s[self.base_idx])
         if s_pre <= 0:
             raise ArithmeticError('Baseline signal is zero or negative.')

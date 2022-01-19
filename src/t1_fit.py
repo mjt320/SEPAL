@@ -56,6 +56,9 @@ class VFA2Points(Fitter):
                 t1 (float): T1 (s)
 
         """
+        if any(np.isnan(s)):
+            raise ValueError(
+                f'Unable to calculate T1: nan signal values received.')
         with np.errstate(divide='ignore', invalid='ignore'):
             fa_true = k_fa * self.fa_rad
             sr = s[0] / s[1]
@@ -67,7 +70,7 @@ class VFA2Points(Fitter):
                          ((1 - np.exp(-self.tr / t1)) * np.sin(fa_true[0])))
 
         if ~np.isreal(t1) | (t1 <= 0) | np.isinf(t1) | (s0 <= 0) | np.isinf(s0):
-            raise ValueError('T1 estimation failed.')
+            raise ArithmeticError('T1 estimation failed.')
 
         return s0, t1
 
@@ -107,6 +110,9 @@ class VFALinear(Fitter):
                 t1 (float): T1 (s)
 
         """
+        if any(np.isnan(s)) or np.isnan(k_fa):
+            raise ArithmeticError(
+                f'Unable to calculate T1: nan signal or k_fa values received.')
         fa_true = k_fa * self.fa_rad
         y = s / np.sin(fa_true)
         x = s / np.tan(fa_true)
@@ -114,7 +120,7 @@ class VFALinear(Fitter):
         slope, intercept = np.linalg.lstsq(A, y, rcond=None)[0]
 
         if (intercept < 0) or ~(0. < slope < 1.):
-            raise ValueError('T1 estimation failed.')
+            raise ArithmeticError('T1 estimation failed.')
 
         t1, s0 = -self.tr / np.log(slope), intercept / (1 - slope)
 
@@ -157,10 +163,13 @@ class VFANonLinear(Fitter):
                 t1 (float): T1 (s)
 
         """
+        if any(np.isnan(s)) or np.isnan(k_fa):
+            raise ValueError(
+                f'Unable to calculate T1: nan signal or k_fa values received.')
         # use linear fit to obtain initial guess, otherwise start with T1=1
         try:
             x0 = np.array(self.linear_fitter.proc(s, k_fa=k_fa))
-        except ValueError:
+        except ArithmeticError:
             x0 = np.array([s[0] / spgr_signal(1., 1., self.tr, k_fa * self.fa[
                 0]), 1.])
 
@@ -248,26 +257,17 @@ class HIFI(Fitter):
         """
         # First get a quick linear T1 estimate
         if self.get_linear_estimate:  # If >1 SPGR, use linear VFA fit
-            result_lin = self.linear_fitter.proc(s[self.is_spgr])
-            if ~np.isnan(result_lin['s0']) and ~np.isnan(result_lin['t1']):
-                s0_init, t1_init = result_lin['s0'], result_lin['t1']
-            else:  # if result invalid, assume T1=1
+            i = self.idx_spgr[0]
+            try:
+                s0_init, t1_init = self.linear_fitter.proc(s[self.is_spgr])
+            except ArithmeticError:  # if result invalid, assume T1=1
                 t1_init = 1
-                s0_init = s[self.idx_spgr[0]] / spgr_signal(1, t1_init,
-                                                            self.esp[
-                                                                self.idx_spgr[
-                                                                    0]],
-                                                            self.b[
-                                                                self.idx_spgr[
-                                                                    0]])
+                s0_init = s[i] / spgr_signal(1, t1_init, self.esp[i], self.b[i])
         # If 1 SPGR scan, assume T1=1 and estimate s0 based on 1st SPGR scan
         elif self.n_spgr == 1:
+            i = self.idx_spgr[0]
             t1_init = 1
-            s0_init = s[self.idx_spgr[0]] / spgr_signal(1, t1_init,
-                                                        self.esp[
-                                                            self.idx_spgr[0]],
-                                                        self.b[
-                                                            self.idx_spgr[0]])
+            s0_init = s[i] / spgr_signal(1, t1_init, self.esp[i], self.b[i])
         # If 0 SPGR scans, assume T1=1 and estimate s0 based on 1st scan
         else:
             t1_init = 1
@@ -286,9 +286,10 @@ class HIFI(Fitter):
                                method='trf',
                                x_scale=(t1_init, s0_init, k_init)
                                )
-        x_opt = result.x if result.success else (np.nan, np.nan, np.nan)
-        t1, s0, k_fa = x_opt
-        s_opt = self.__signal(x_opt)
+        if ~result.success:
+            raise ArithmeticError(f'Unable to fit HIFI data: {result.message}')
+        t1, s0, k_fa = result.x
+        s_opt = self.__signal(result.x)
         return s0, t1, k_fa, s_opt
 
     def __residuals(self, x, s):
