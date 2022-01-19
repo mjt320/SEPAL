@@ -5,7 +5,7 @@ Created 28 September 2020
 @email: m.j.thrippleton@ed.ac.uk
 @institution: University of Edinburgh, UK
 
-Classes: Aif and derived subclasses:
+Classes: AIF and derived subclasses:
     PatientSpecific
     ParkerLike
     Parker
@@ -20,12 +20,12 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-class Aif(ABC):
+class AIF(ABC):
     """Abstract base class for arterial input functions.
 
     Subclasses correspond to types of AIF, e.g. population-average functions
     and patient-specific AIFs based on input data.
-    The main purpose of the Aif class is to return the tracer concentration in
+    The main purpose of the AIF class is to return the tracer concentration in
     arterial plasma at any time points.
 
     Methods
@@ -52,7 +52,7 @@ class Aif(ABC):
         pass
 
 
-class PatientSpecific(Aif):
+class PatientSpecific(AIF):
     """Patient-specific AIF subclass.
 
     Constructed using time-concentration data, typically obtained from
@@ -82,7 +82,7 @@ class PatientSpecific(Aif):
         return c_ap
 
 
-class ParkerLike(Aif):
+class ParkerLike(AIF):
     """Parker-like AIF subclass.
 
     Generate AIF concentrations using a mathematical function that is based

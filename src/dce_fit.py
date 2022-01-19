@@ -128,7 +128,7 @@ class EnhToConc(Fitter):
         return C_func(enh)
 
 
-class ConcToPkp(Fitter):
+class ConcToPKP(Fitter):
     """Fit tissue concentrations using pharmacokinetic model.
 
     Subclass of Fitter.
@@ -340,8 +340,8 @@ def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):
     R10 = 1 / t10
     R1 = c_to_r_model.R1(R10, C_t)
     R2 = c_to_r_model.R2(0, C_t)  # can assume R20=0 for existing signal models
-    s_pre = signal_model.R_to_s(s0=1., R1=R10, R2=0, R2s=0, k=k)
-    s_post = signal_model.R_to_s(s0=1., R1=R1, R2=R2, R2s=R2, k=k)
+    s_pre = signal_model.R_to_s(s0=1., R1=R10, R2=0, R2s=0, k_fa=k)
+    s_post = signal_model.R_to_s(s0=1., R1=R1, R2=R2, R2s=R2, k_fa=k)
     enh = 100. * ((s_post - s_pre) / s_pre)
     return enh
 
@@ -417,10 +417,10 @@ def pkp_to_enh(pk_pars, hct, k_fa, t10_tissue, t10_blood, pk_model,
 
     # calculate pre- and post-Gd signal, summed over relaxation components
     s_pre = np.sum(
-        [p0_c * signal_model.R_to_s(1, R10_components[i], k=k_fa) for i, p0_c in
+        [p0_c * signal_model.R_to_s(1, R10_components[i], k_fa=k_fa) for i, p0_c in
          enumerate(p0_components)], 0)
     s_post = np.sum(
-        [p_c * signal_model.R_to_s(1, R1_components[i], k=k_fa) for i, p_c in
+        [p_c * signal_model.R_to_s(1, R1_components[i], k_fa=k_fa) for i, p_c in
          enumerate(p_components)], 0)
     enh = 100. * (s_post - s_pre) / s_pre
     return enh

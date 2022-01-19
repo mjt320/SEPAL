@@ -67,8 +67,8 @@ class PkModel(ABC):
             1D float array of times (s) at which concentration should be
             calculated. Normally these are the times at which data points were
             measured. The sequence of times does not have to start at zero.
-        aif : aifs.Aif
-            Aif object to use.
+        aif : aifs.AIF
+            AIF object to use.
         upsample_factor : int, optional
             The IRF and AIF are upsampled by this factor when calculating
             concentration. For non-uniform temporal resolution, the smallest
@@ -96,7 +96,7 @@ class PkModel(ABC):
         self.tau_upsample = self.t_upsample - t[0]
         self.fixed_delay = fixed_delay
 
-        # set variable parameters anbd bounds, depending whether AIF delay fixed
+        # set variable parameters and bounds, depending whether AIF delay fixed
         if fixed_delay is None:  # add AIF delay as a variable parameter
             self.parameter_names = type(self).PARAMETER_NAMES + ('delay',)
             self.typical_vals = np.append(type(self).TYPICAL_VALS, 1)

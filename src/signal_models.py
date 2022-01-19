@@ -26,7 +26,7 @@ class SignalModel(ABC):
     """
 
     @abstractmethod
-    def R_to_s(self, s0, R1, R2, R2s, k):
+    def R_to_s(self, s0, R1, R2, R2s, k_fa):
         """Convert relaxation parameters to signal.
 
         Parameters
@@ -39,7 +39,7 @@ class SignalModel(ABC):
             R2 relaxation rate (s^-1).
         R2s : float
             R2* signal dephasing rate (s^-1).
-        k : float
+        k_fa : float
             B1 correction factor, equal to the actual/nominal flip angle.
 
         Returns
@@ -67,9 +67,9 @@ class SPGR(SignalModel):
         self.fa = fa
         self.te = te
 
-    def R_to_s(self, s0, R1, R2=None, R2s=0, k=1.):
+    def R_to_s(self, s0, R1, R2=None, R2s=0, k_fa=1):
         """Get signal for this model. Overrides superclass method."""
-        fa = k * self.fa * np.pi/180
+        fa = k_fa * self.fa * np.pi / 180
         s = s0 * (((1.0-np.exp(-self.tr*R1))*np.sin(fa)) /
                   (1.0-np.exp(-self.tr*R1)*np.cos(fa))
                   ) * np.exp(-self.te*R2s)
