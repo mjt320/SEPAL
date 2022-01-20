@@ -286,7 +286,7 @@ class HIFI(Fitter):
                                method='trf',
                                x_scale=(t1_init, s0_init, k_init)
                                )
-        if ~result.success:
+        if not result.success:
             raise ArithmeticError(f'Unable to fit HIFI data: {result.message}')
         t1, s0, k_fa = result.x
         s_opt = self.__signal(result.x)
