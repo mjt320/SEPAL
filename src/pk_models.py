@@ -14,7 +14,7 @@ import numpy as np
 from scipy.signal import convolve
 
 
-class PkModel(ABC):
+class PKModel(ABC):
     """Abstract base class for pharmacokinetic models.
 
     Subclasses correspond to specific models (e.g. Tofts). The main purpose of
@@ -50,6 +50,7 @@ class PkModel(ABC):
         convert parameters from dict to array format
     pkp_dict(pkp_array)
         convert parameters from array to dict format
+
     """
 
     #  The following class variables should be overridden by derived classes
@@ -217,7 +218,7 @@ class PkModel(ABC):
         pass
 
 
-class SteadyStateVp(PkModel):
+class SteadyStateVp(PKModel):
     """Steady-state vp model subclass.
 
     Tracer is confined to a single blood plasma compartment with same
@@ -242,7 +243,7 @@ class SteadyStateVp(PkModel):
         return irf_cp, irf_e
 
 
-class Patlak(PkModel):
+class Patlak(PKModel):
     """Patlak model subclass.
 
     Tracer is present in the blood plasma compartment with same concentration
@@ -267,7 +268,7 @@ class Patlak(PkModel):
         return irf_cp, irf_e
 
 
-class ExtendedTofts(PkModel):
+class ExtendedTofts(PKModel):
     """Extended tofts model subclass.
 
     Tracer is present in the blood plasma compartment with same concentration
@@ -292,7 +293,7 @@ class ExtendedTofts(PkModel):
         return irf_cp, irf_e
 
 
-class TCUM(PkModel):
+class TCUM(PKModel):
     """Two-compartment uptake model subclass.
 
     Tracer flows from AIF to the blood plasma compartment; one-way leakage
@@ -321,7 +322,7 @@ class TCUM(PkModel):
         return irf_cp, irf_e
 
 
-class TCXM(PkModel):
+class TCXM(PKModel):
     """Two-compartment exchange model subclass.
 
     Tracer flows from AIF to the blood plasma compartment; two-way leakage
@@ -361,7 +362,7 @@ class TCXM(PkModel):
         return irf_cp, irf_e
 
 
-class Tofts(PkModel):
+class Tofts(PKModel):
     """Tofts model subclass.
 
     Tracer flows from AIF to the EES via a negligible blood plasma compartment;
