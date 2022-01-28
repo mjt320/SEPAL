@@ -232,7 +232,11 @@ class HIFI(Fitter):
         self.n_spgr = self.idx_spgr.size
         self.get_linear_estimate = self.n_spgr > 1 and np.all(
             np.isclose(esp[self.idx_spgr], esp[self.idx_spgr[0]]))
-        self.linear_fitter = VFALinear(b[self.is_spgr], esp[self.idx_spgr[0]])
+        if self.get_linear_estimate:
+            self.linear_fitter = VFALinear(b[self.is_spgr],
+                                           esp[self.idx_spgr[0]])
+        self.max_k_fa = 90 / max(self.b[self.is_ir]) if any(self.is_ir) else \
+            np.inf
 
     def output_info(self):
         """Get output info. Overrides superclass method.
@@ -277,10 +281,10 @@ class HIFI(Fitter):
         # Now do a non-linear fit using all scans
         if k_fa_fixed is None:
             k_init = 1
-            bounds = ([0, 0, 0], [np.inf, np.inf, np.inf])
+            bounds = ([0, 0, 0], [np.inf, np.inf, self.max_k_fa])
         else:
             k_init = k_fa_fixed
-            bounds = ([0, 0, 1], [np.inf, np.inf, 1])
+            bounds = ([0, 0, k_fa_fixed-1e-8], [np.inf, np.inf, k_fa_fixed])
         x_0 = np.array([t1_init, s0_init, k_init])
         result = least_squares(self.__residuals, x_0, args=(s,), bounds=bounds,
                                method='trf',
@@ -331,7 +335,7 @@ def spgr_signal(s0, t1, tr, fa):
     fa_rad = np.pi * fa / 180
 
     e = np.exp(-tr / t1)
-    s = s0 * (((1 - e) * np.sin(fa_rad)) / (1 - e * np.cos(fa_rad)))
+    s = abs(s0 * (((1 - e) * np.sin(fa_rad)) / (1 - e * np.cos(fa_rad))))
 
     return s
 
