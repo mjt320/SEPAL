@@ -15,7 +15,7 @@ Created 28 September 2020
 - Fit signal enhancement using pharmacokinetic model
 - Pharmacokinetic models: steady-state, Patlak, extended Tofts, Tofts, 2CXM, 2CUM
 - AIFs: patient-specific (measured), Parker, bi-exponential Parker
-- Fitting an AIF time delay
+- Fitting free AIF time delay parameter
 - Relaxivity models: linear
 - Signal models: spoiled gradient echo
 - Water exchange models: FXL, NXL, NXL_be
@@ -23,17 +23,17 @@ Created 28 September 2020
 
 ### Not yet implemented/limitations:
 - Generally untested. Not optimised for speed or robustness.
-- Additional pharmacokinetic models (add by inheriting from pk_model class)
-- Additional relaxivity models (add by inheriting from c_to_r_model class)
-- Additional AIF functions (add by inheriting from aif class)
-- Additional water exchange models, e.g. 3S2X, 2S1X (add by inheriting from water_ex_model class)
-- Additional signal models (add by inheriting from signal_model class)
+- Additional pharmacokinetic models (add by inheriting from PkModel class)
+- Additional relaxivity models (add by inheriting from CRModel class)
+- Additional water exchange models, e.g. 3S2X, 2S1X (add by inheriting from WaterExModel class)
+- Additional signal models (add by inheriting from SignalModel class)
 - R2/R2* effects not included in fitting of enhancement curves (but is included for enhancement-to-concentration conversion)
 - Compartment-specific relaxivity parameters/models
 - Fitting free water exchange parameters
 - Special model implementations, e.g. linear and graphical versions of Patlak model
 
-TODO:
-- Convert fitting functions to OO methods. Add image processing functions.
-- Parallel
-- Calculate IRF integrals exactly.
+### TODO:
+- linear Patlak model
+- option to truly constrain k in HIFI fit 
+- fast C calculation for SPGR with r2=0
+- inversion recovery T1 measurement

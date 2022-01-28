@@ -21,11 +21,11 @@ Created 28 September 2020
 
 ### Not yet implemented/limitations:
 - Generally untested. Not optimised for speed or robustness.
-- Additional pharmacokinetic models (add by inheriting from pk_model class)
-- Additional relaxivity models (add by inheriting from c_to_r_model class)
-- Additional AIF functions (add by inheriting from aif class)
-- Additional water exchange models, e.g. 3S2X, 2S1X (add by inheriting from water_ex_model class)
-- Additional signal models (add by inheriting from signal_model class)
+- Additional pharmacokinetic models (add by inheriting from PkModel class)
+- Additional relaxivity models (add by inheriting from CRModel class)
+- Additional AIF functions (add by inheriting from AIF class)
+- Additional water exchange models, e.g. 3S2X, 2S1X (add by inheriting from WaterExModel class)
+- Additional signal models (add by inheriting from SignalModel class)
 - R2/R2* effects not included in fitting of enhancement curves (but is included for enhancement-to-concentration conversion)
 - Compartment-specific relaxivity parameters/models
 - Fitting free water exchange parameters
