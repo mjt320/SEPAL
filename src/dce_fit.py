@@ -8,8 +8,9 @@ Created 28 September 2020
 Classes:
     SigToEnh
     EnhToConc
-    ConcToPkp
-    EnhToPkp
+    ConcToPKP
+    EnhToPKP
+    PatlakLinear
 
 Functions:
     conc_to_enh
@@ -22,6 +23,7 @@ import numpy as np
 from scipy.signal import argrelextrema
 from scipy.interpolate import interp1d
 from fitting import Fitter
+from pk_models import Patlak
 from utils.utilities import least_squares_global
 
 
@@ -310,6 +312,78 @@ class EnhToPKP(Fitter):
                              self.t10_blood, self.pk_model, self.c_to_r_model,
                              self.water_ex_model, self.signal_model)
         return self.weights * (enh_try - enh)
+
+
+class PatlakLinear(Fitter):
+    """Fit tissue concentrations using Patlak model.
+
+    Subclass of Fitter.
+    Uses multiple linear regression fitting. This is faster than non-linear
+    fitting but more reliable than the traditional "graphical Patlak" method.
+    """
+    def __init__(self, t, aif, upsample_factor=1, include=None):
+        """
+        Args:
+            pk_model (PkModel): Pharmacokinetic model used to predict tracer
+                distribution.
+            pk_pars_0 (list, optional): list of dicts containing starting values
+                of pharmacokinetic parameters. If there are >1 dicts then the
+                optimisation will be run multiple times and the global minimum
+                used.
+                Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
+                Defaults to values in PkModel.typical_vals.
+            include (ndarray, optional): 1D float array of true/false or 1/0
+                indicating which points to include in the linear regression
+        """
+        self.t = t
+        self.aif = aif
+        if include is None:
+            self.include = np.ones(t.size).astype(bool)
+        else:
+            self.include = include.astype(bool)
+        # Create a Patlak object and use to create the regressors
+        # These are simply the vascular and EES contributions to
+        # concentration when vp=1 and ps=1, i.e. the AIF and its integral.
+        _, reg_vp, reg_ps = Patlak(t, aif, upsample_factor).conc(vp=1, ps=1)
+        # combine regressors into a matrix
+        self.regs = np.stack([reg_vp, reg_ps],
+                             axis=1)
+        self.regs_incl = np.stack([reg_vp[self.include], reg_ps[self.include]],
+                             axis=1)
+
+    def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        # outputs are pharmacokinetic parameters + fitted concentration
+        return ('vp', False), ('ps', False), ('Ct_fit', True)
+
+    def proc(self, C_t):
+        """Fit tissue concentration time series. Overrides superclass method.
+        Args:
+            C_t (ndarray): 1D float array containing tissue concentration
+            time series (mM), specifically the mMol of tracer per unit tissue
+            volume.
+
+        Returns:
+            tuple: (pk_par_1, pk_par_2, ..., Ct_fit)
+            pk_par_i (float): fitted parameters (in the order given in
+                self.PkModel.parameter_names)
+            Ct_fit (ndarray): best-fit tissue concentration (mM).
+        """
+        if any(np.isnan(C_t[self.include])):
+            raise ValueError(f'Unable to fit model: nan arguments received.')
+
+        # do ML regression
+        try:
+            coeffs = np.linalg.lstsq(
+                self.regs_incl, C_t[self.include], rcond=None)[0]
+        except LinAlgError:
+            raise ArithmeticError(
+                f'Unable to calculate pharmacokinetic parameters')
+        vp, ps = coeffs
+        Ct_fit = self.regs @ coeffs
+        Ct_fit[~self.include] = np.nan
+        return vp, ps, Ct_fit
 
 
 def conc_to_enh(C_t, t10, k, c_to_r_model, signal_model):

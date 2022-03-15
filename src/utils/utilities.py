@@ -44,7 +44,7 @@ def minimize_global(cost, x_0_all, **minimizer_kwargs):
 
 
 def least_squares_global(res, x_0_all, **least_squares_kwargs):
-    """Find global minimum by calling scipy.optimize.least_squares multiple times.
+    """Find global minimum using scipy.optimize.least_squares multiple times.
 
     Parameters
     ----------
