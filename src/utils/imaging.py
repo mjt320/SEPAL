@@ -22,8 +22,10 @@ def read_images(images):
     along a new dimension.
 
     Args:
-        images (list): List of ndarrays containing image data
-            or strs indicating nifti image paths.
+        images (list, str, ndarray): Array containing input image data or str
+            corresponding to nifti image file path. If a list of ndarray or str
+            is provided the images will first be concatenated along a new
+            dimension.
 
     Returns:
         tuple: (data, header)
