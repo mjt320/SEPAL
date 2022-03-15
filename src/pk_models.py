@@ -231,7 +231,7 @@ class SteadyStateVp(PKModel):
     LOWER_BOUNDS = (0,)
     UPPER_BOUNDS = (1,)
 
-    def irf(self, vp, **kwargs):
+    def irf(self, vp, *args, **kwargs):
         """Get IRF for this model. Overrides superclass method."""
         # calculate irf for capillary plasma (delta function centred at t=0)
         irf_cp = np.zeros(self.n_upsample, dtype=float)
@@ -256,7 +256,7 @@ class Patlak(PKModel):
     LOWER_BOUNDS = (0, -1e-3)
     UPPER_BOUNDS = (1, 1)
 
-    def irf(self, vp, ps, **kwargs):
+    def irf(self, vp, ps, *args, **kwargs):
         """Get IRF for this model. Overrides superclass method."""
         # calculate irf for capillary plasma (delta function centred at t=0)
         irf_cp = np.zeros(self.n_upsample, dtype=float)
@@ -281,7 +281,7 @@ class ExtendedTofts(PKModel):
     LOWER_BOUNDS = (0, -1e-3, 1e-8)
     UPPER_BOUNDS = (1, 1, 1)
 
-    def irf(self, vp, ps, ve, **kwargs):
+    def irf(self, vp, ps, ve, *args, **kwargs):
         """Get IRF for this model. Overrides superclass method."""
         # calculate irf for capillary plasma (delta function centred at t=0)
         irf_cp = np.zeros(self.n_upsample, dtype=float)
@@ -306,7 +306,7 @@ class TCUM(PKModel):
     LOWER_BOUNDS = (1e-8, -1e-3, 1e-8)
     UPPER_BOUNDS = (1, 1, 200)
 
-    def irf(self, vp, ps, fp, **kwargs):
+    def irf(self, vp, ps, fp, *args, **kwargs):
         """Get IRF for this model. Overrides superclass method."""
         fp_per_s = fp / (60. * 100.)
         ps_per_s = ps / 60.
@@ -375,7 +375,7 @@ class Tofts(PKModel):
     LOWER_BOUNDS = (-1e-3, 1e-8)
     UPPER_BOUNDS = (1, 1)
 
-    def irf(self, ktrans, ve, **kwargs):
+    def irf(self, ktrans, ve, *args, **kwargs):
         """Get IRF for this model. Overrides superclass method."""
         ktrans_per_s = ktrans / 60.
 

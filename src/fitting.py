@@ -68,11 +68,11 @@ class Fitter(ABC):
         """Process image voxel-by-voxel using subclass proc method.
 
         Args:
-            input_images (list): One or more input images to be processed. List
-                can contain nifti filenames (str) or arrays (ndarray). If there
-                is one image in the list, the last dimension is assumed to be
-                the series dimension (e.g. time, flip angle). If the list
-                contains >1 images, they are concatenated along a new series
+            input_images (list, str, ndarray): ndarray containing input image
+                data or str corresponding to nifti image file path. The last
+                dimension is assumed to be the series dimension (e.g. time,
+                flip angle). If a list of ndarray or str is provided these
+                images will first be concatenated to form a new series
                 dimension.
             arg_images (tuple): Tuple containing one image (str or ndarray,
                 as above) for each argument needed by the subclass proc method.
@@ -131,7 +131,8 @@ class Fitter(ABC):
             mask_1d = np.empty(n_voxels, dtype=bool)
             mask_1d[:] = True
         else:
-            mask_1d = nib.load(mask).get_fdata().reshape(-1)
+            mask_nd, _ = read_images(mask)
+            mask_1d = mask_nd.reshape(-1)
             if any((mask_1d != 0) & (mask_1d != 1)):
                 raise ValueError('Mask contains elements that are not 0 or 1.')
             mask_1d = mask_1d.astype(bool)
@@ -186,7 +187,8 @@ class Fitter(ABC):
         if filters is not None:
             for name, limits in filters.items():
                 outputs[name][
-                    ~(limits[0] <= outputs[name] <= limits[1])] = np.nan
+                    ~((limits[0] <= outputs[name]) &
+                      (outputs[name] <= limits[1]))] = np.nan
 
         # reshape output arrays to match image shape
         for name, values in outputs.items():
