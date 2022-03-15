@@ -332,10 +332,8 @@ class PatlakLinear(Fitter):
                 used.
                 Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
                 Defaults to values in PkModel.typical_vals.
-            weights (ndarray, optional): 1D float array of weightings to use
-                for sum-of-squares calculation. Can be used to "exclude" data
-                points from optimisation. Defaults to equal weighting for all
-                points.
+            include (ndarray, optional): 1D float array of true/false or 1/0
+                indicating which points to include in the linear regression
         """
         self.t = t
         self.aif = aif
@@ -348,7 +346,9 @@ class PatlakLinear(Fitter):
         # concentration when vp=1 and ps=1, i.e. the AIF and its integral.
         _, reg_vp, reg_ps = Patlak(t, aif, upsample_factor).conc(vp=1, ps=1)
         # combine regressors into a matrix
-        self.regs = np.stack([reg_vp[self.include], reg_ps[self.include]],
+        self.regs = np.stack([reg_vp, reg_ps],
+                             axis=1)
+        self.regs_incl = np.stack([reg_vp[self.include], reg_ps[self.include]],
                              axis=1)
 
     def output_info(self):
@@ -374,17 +374,15 @@ class PatlakLinear(Fitter):
             raise ValueError(f'Unable to fit model: nan arguments received.')
 
         # do ML regression
-        vp, ps = np.linalg.lstsq(self.regs, C_t[self.include], rcond=None)[0]
-        # catch exception/bad results
-        # vp, ps = coefficients
-        # Ct_fit by matrix multiplication
-
-        if result.success is False:
+        try:
+            coeffs = np.linalg.lstsq(
+                self.regs_incl, C_t[self.include], rcond=None)[0]
+        except LinAlgError:
             raise ArithmeticError(
-                f'Unable to calculate pharmacokinetic parameters'
-                f': {result.message}')
-
-        Ct_fit[self.weights == 0] = np.nan
+                f'Unable to calculate pharmacokinetic parameters')
+        vp, ps = coeffs
+        Ct_fit = self.regs @ coeffs
+        Ct_fit[~self.include] = np.nan
         return vp, ps, Ct_fit
 
 

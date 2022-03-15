@@ -33,6 +33,5 @@ Created 28 September 2020
 - Special model implementations, e.g. linear and graphical versions of Patlak model
 
 ### TODO:
-- linear Patlak model
 - fast C calculation for SPGR with r2=0
 - inversion recovery T1 measurement
