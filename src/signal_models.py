@@ -64,12 +64,12 @@ class SPGR(SignalModel):
             te (float): echo time (s)
         """
         self.tr = tr
-        self.fa = fa
+        self.fa = fa * np.pi / 180
         self.te = te
 
     def R_to_s(self, s0, R1, R2=None, R2s=0, k_fa=1):
         """Get signal for this model. Overrides superclass method."""
-        fa = k_fa * self.fa * np.pi / 180
+        fa = k_fa * self.fa
         s = s0 * (((1.0-np.exp(-self.tr*R1))*np.sin(fa)) /
                   (1.0-np.exp(-self.tr*R1)*np.cos(fa))
                   ) * np.exp(-self.te*R2s)
