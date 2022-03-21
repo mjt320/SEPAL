@@ -31,4 +31,4 @@ Created 28 September 2020
 - Fitting free water exchange parameters
 
 ### TODO:
-- fast C calculation for SPGR with r2=0
+- inversion recovery T1 measurment
