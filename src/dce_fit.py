@@ -130,6 +130,59 @@ class EnhToConc(Fitter):
         return C_func(enh)
 
 
+class EnhToConcSPGR(Fitter):
+    """Convert enhancement to concentration.
+
+    Subclass of Fitter. Calculates points on the enh vs. conc curve,
+    interpolates and uses this to "look up" concentration values given the
+    enhancement values. It assumes the fast water exchange limit.
+    """
+
+    def __init__(self, tr, fa, r1):
+        """
+
+        Args:
+            c_to_r_model (CRModel): concentration to relaxation
+                relationship
+            signal_model (SignalModel): relaxation to signal relationship
+            C_min (float, optional): minimum value of concentration to look for
+            C_max (float, optional): maximum value of concentration to look for
+            n_samples (int, optional): number of points to sample the enh-conc
+                function, prior to interpolation
+        """
+        self.tr = tr
+        self.fa = fa
+        self.r1 = r1
+
+    def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        return ('C_t', True),
+
+    def proc(self, enh, t10, k_fa=1):
+        """Calculate concentration time series. Overrides superclass method.
+
+        Args:
+            enh (ndarray): 1D array of enhancements (%)
+            t10 (float): tissue T10 (s)
+            k_fa (float, optional): B1 correction factor (actual/nominal flip
+            angle). Defaults to 1.
+
+        Returns:
+            ndarray: 1D array of tissue concentrations (mM)
+        """
+        if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
+            raise ValueError(
+                f'Unable to calculate concentration: nan arguments received.')
+        cos_fa_true = np.cos(k_fa * self.fa * np.pi/180)
+        exp_r10_tr = np.exp(self.tr/t10)
+        C_t = -np.log((exp_r10_tr * (enh-100*cos_fa_true-enh*exp_r10_tr+100)) /
+                      (100 * exp_r10_tr + enh * cos_fa_true - 100 * exp_r10_tr *
+                       cos_fa_true - enh * exp_r10_tr * cos_fa_true)
+                      ) / (self.tr * self.r1)
+        return C_t
+
+
 class ConcToPKP(Fitter):
     """Fit tissue concentrations using pharmacokinetic model.
 
