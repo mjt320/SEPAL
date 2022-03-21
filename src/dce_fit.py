@@ -9,6 +9,7 @@ Classes:
     SigToEnh
     EnhToConc
     ConcToPKP
+    EnhToConcSPGR
     EnhToPKP
     PatlakLinear
 
@@ -133,25 +134,21 @@ class EnhToConc(Fitter):
 class EnhToConcSPGR(Fitter):
     """Convert enhancement to concentration.
 
-    Subclass of Fitter. Calculates points on the enh vs. conc curve,
-    interpolates and uses this to "look up" concentration values given the
-    enhancement values. It assumes the fast water exchange limit.
+    Subclass of Fitter. Uses analytical formula for SPGR signal,
+    excluding T2* effects and assuming the fast water exchange limit. This
+    approach is faster than EnhToConc.
     """
 
     def __init__(self, tr, fa, r1):
         """
 
         Args:
-            c_to_r_model (CRModel): concentration to relaxation
-                relationship
-            signal_model (SignalModel): relaxation to signal relationship
-            C_min (float, optional): minimum value of concentration to look for
-            C_max (float, optional): maximum value of concentration to look for
-            n_samples (int, optional): number of points to sample the enh-conc
-                function, prior to interpolation
+            tr (float): repetition time (s)
+            fa (float): flip angle (deg)
+            r1 (float): R1 relaxivity (s^-1 mM^-1)
         """
         self.tr = tr
-        self.fa = fa
+        self.fa = fa * np.pi/180
         self.r1 = r1
 
     def output_info(self):
@@ -174,7 +171,7 @@ class EnhToConcSPGR(Fitter):
         if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
             raise ValueError(
                 f'Unable to calculate concentration: nan arguments received.')
-        cos_fa_true = np.cos(k_fa * self.fa * np.pi/180)
+        cos_fa_true = np.cos(k_fa * self.fa)
         exp_r10_tr = np.exp(self.tr/t10)
         C_t = -np.log((exp_r10_tr * (enh-100*cos_fa_true-enh*exp_r10_tr+100)) /
                       (100 * exp_r10_tr + enh * cos_fa_true - 100 * exp_r10_tr *
