@@ -4,7 +4,7 @@
 
 Python library for simulating and fitting DCE-MRI data. It permits arbitrary combinations of pulse sequence, pharmacokinetic model, water exchange model, etc. The code is a work-in-progress, has not been extensively tested and is not recommended or approved for clinical use.
 
-Created 28 September 2020
+Created 28 September 2020  
 @authors: Michael Thrippleton  
 @email: m.j.thrippleton@ed.ac.uk  
 @institution: University of Edinburgh, UK
@@ -14,6 +14,7 @@ Created 28 September 2020
 - Fit tissue concentration using pharmacokinetic model
 - Fit signal enhancement using pharmacokinetic model
 - Pharmacokinetic models: steady-state, Patlak, extended Tofts, Tofts, 2CXM, 2CUM
+- Patlak fitting with multiple linear regression
 - AIFs: including patient-specific (measured), Parker, bi-exponential Parker
 - Fitting free AIF time delay parameter
 - Relaxivity models: linear

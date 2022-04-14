@@ -374,16 +374,18 @@ class PatlakLinear(Fitter):
     def __init__(self, t, aif, upsample_factor=1, include=None):
         """
         Args:
-            pk_model (PkModel): Pharmacokinetic model used to predict tracer
-                distribution.
-            pk_pars_0 (list, optional): list of dicts containing starting values
-                of pharmacokinetic parameters. If there are >1 dicts then the
-                optimisation will be run multiple times and the global minimum
-                used.
-                Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
-                Defaults to values in PkModel.typical_vals.
-            include (ndarray, optional): 1D float array of true/false or 1/0
-                indicating which points to include in the linear regression
+            t (ndarray): 1D float array of times (s) at which concentration
+                should be calculated. Normally these are the times at which
+                data points were measured. The sequence of times does not
+                have to start at zero.
+        aif (aifs.AIF): AIF object to use.
+        upsample_factor (int, optional): The IRF and AIF are upsampled by
+            this factor when calculating concentration. For non-uniform
+            temporal resolution, the smallest time difference between time
+            points is divided by this number. The default is 1.
+        include (ndarray, optional): 1D float array of True/False or 1/0
+                indicating which points to include in the linear regression.
+                Defaults to None, in which case all points are included.
         """
         self.t = t
         self.aif = aif
@@ -415,10 +417,11 @@ class PatlakLinear(Fitter):
             volume.
 
         Returns:
-            tuple: (pk_par_1, pk_par_2, ..., Ct_fit)
-            pk_par_i (float): fitted parameters (in the order given in
-                self.PkModel.parameter_names)
-            Ct_fit (ndarray): best-fit tissue concentration (mM).
+            tuple: vp, ps, Ct_fit
+                vp (float): blood plasma volume fraction (fraction)
+                ps (float): permeability-surface area product (min^-1)
+                Ct_fit (ndarray): 1D array of floats containing fitted tissue
+                    concentrations (mM)
         """
         if any(np.isnan(C_t[self.include])):
             raise ValueError(f'Unable to fit model: nan arguments received.')
