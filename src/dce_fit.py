@@ -9,6 +9,7 @@ Classes:
     SigToEnh
     EnhToConc
     ConcToPKP
+    EnhToConcSPGR
     EnhToPKP
     PatlakLinear
 
@@ -128,6 +129,55 @@ class EnhToConc(Fitter):
         C_func = interp1d(e_allowed, C_allowed, kind='quadratic',
                           bounds_error=True)
         return C_func(enh)
+
+
+class EnhToConcSPGR(Fitter):
+    """Convert enhancement to concentration.
+
+    Subclass of Fitter. Uses analytical formula for SPGR signal,
+    excluding T2* effects and assuming the fast water exchange limit. This
+    approach is faster than EnhToConc.
+    """
+
+    def __init__(self, tr, fa, r1):
+        """
+
+        Args:
+            tr (float): repetition time (s)
+            fa (float): flip angle (deg)
+            r1 (float): R1 relaxivity (s^-1 mM^-1)
+        """
+        self.tr = tr
+        self.fa = fa * np.pi/180
+        self.r1 = r1
+
+    def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        return ('C_t', True),
+
+    def proc(self, enh, t10, k_fa=1):
+        """Calculate concentration time series. Overrides superclass method.
+
+        Args:
+            enh (ndarray): 1D array of enhancements (%)
+            t10 (float): tissue T10 (s)
+            k_fa (float, optional): B1 correction factor (actual/nominal flip
+            angle). Defaults to 1.
+
+        Returns:
+            ndarray: 1D array of tissue concentrations (mM)
+        """
+        if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
+            raise ValueError(
+                f'Unable to calculate concentration: nan arguments received.')
+        cos_fa_true = np.cos(k_fa * self.fa)
+        exp_r10_tr = np.exp(self.tr/t10)
+        C_t = -np.log((exp_r10_tr * (enh-100*cos_fa_true-enh*exp_r10_tr+100)) /
+                      (100 * exp_r10_tr + enh * cos_fa_true - 100 * exp_r10_tr *
+                       cos_fa_true - enh * exp_r10_tr * cos_fa_true)
+                      ) / (self.tr * self.r1)
+        return C_t
 
 
 class ConcToPKP(Fitter):
@@ -324,16 +374,18 @@ class PatlakLinear(Fitter):
     def __init__(self, t, aif, upsample_factor=1, include=None):
         """
         Args:
-            pk_model (PkModel): Pharmacokinetic model used to predict tracer
-                distribution.
-            pk_pars_0 (list, optional): list of dicts containing starting values
-                of pharmacokinetic parameters. If there are >1 dicts then the
-                optimisation will be run multiple times and the global minimum
-                used.
-                Example: [{'vp': 0.1, 'ps': 1e-3, 've': 0.5}]
-                Defaults to values in PkModel.typical_vals.
-            include (ndarray, optional): 1D float array of true/false or 1/0
-                indicating which points to include in the linear regression
+            t (ndarray): 1D float array of times (s) at which concentration
+                should be calculated. Normally these are the times at which
+                data points were measured. The sequence of times does not
+                have to start at zero.
+        aif (aifs.AIF): AIF object to use.
+        upsample_factor (int, optional): The IRF and AIF are upsampled by
+            this factor when calculating concentration. For non-uniform
+            temporal resolution, the smallest time difference between time
+            points is divided by this number. The default is 1.
+        include (ndarray, optional): 1D float array of True/False or 1/0
+                indicating which points to include in the linear regression.
+                Defaults to None, in which case all points are included.
         """
         self.t = t
         self.aif = aif
@@ -365,10 +417,11 @@ class PatlakLinear(Fitter):
             volume.
 
         Returns:
-            tuple: (pk_par_1, pk_par_2, ..., Ct_fit)
-            pk_par_i (float): fitted parameters (in the order given in
-                self.PkModel.parameter_names)
-            Ct_fit (ndarray): best-fit tissue concentration (mM).
+            tuple: vp, ps, Ct_fit
+                vp (float): blood plasma volume fraction (fraction)
+                ps (float): permeability-surface area product (min^-1)
+                Ct_fit (ndarray): 1D array of floats containing fitted tissue
+                    concentrations (mM)
         """
         if any(np.isnan(C_t[self.include])):
             raise ValueError(f'Unable to fit model: nan arguments received.')
