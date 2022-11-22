@@ -23,9 +23,9 @@ Functions:
 import numpy as np
 from scipy.signal import argrelextrema
 from scipy.interpolate import interp1d
-from fitting import Fitter
-from pk_models import Patlak
-from utils.utilities import least_squares_global
+from .fitting import Fitter
+from .pk_models import Patlak
+from .utils.utilities import least_squares_global
 
 
 class SigToEnh(Fitter):
@@ -63,7 +63,7 @@ class SigToEnh(Fitter):
         s_pre = np.mean(s[self.base_idx])
         if s_pre <= 0:
             raise ArithmeticError('Baseline signal is zero or negative.')
-        enh = np.empty(s.shape, dtype=np.float32)
+        enh = np.empty(s.shape, dtype=np.float64)
         enh[:] = 100. * ((s - s_pre) / s_pre) if s_pre > 0 else np.nan
         return enh
 
