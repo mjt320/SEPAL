@@ -22,6 +22,7 @@ Created 28 September 2020
 - Water exchange models: FXL, NXL, NXL_be
 - T1 fitting using variable flip angle method, IR-SPGR and DESPOT1-HIFI
 - T2(*) fitting for multi-TE acquisitions
+- MTR and MTSat calculation
 
 ### Not yet implemented/limitations:
 - Additional pharmacokinetic models (add by inheriting from PkModel class)
