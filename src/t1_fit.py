@@ -19,6 +19,7 @@ Functions:
 import numpy as np
 from scipy.optimize import least_squares
 from fitting import Fitter
+from utils.utilities import least_squares_global
 
 
 class VFA2Points(Fitter):
@@ -311,6 +312,82 @@ class HIFI(Fitter):
         s[self.is_spgr] = spgr_signal(s0, t1, self.esp[self.is_spgr],
                                       k_fa * self.b[self.is_spgr])
         return s
+
+
+class IRSE(Fitter):
+    """T1 estimation from inversion-recovery spin-echo.
+
+    Subclass of Fitter.
+    """
+
+    def __init__(self, tr, ti, pars_0=None, polarity=False):
+        """
+
+        Args:
+            tr (ndarray): TR for each acquisition (s)
+            ti (ndarray): TI for each acquisition (s)
+            pars_0 (list, optional): list of initial parameters to try. Each
+                element is a length-2 ndarray containing s0, T1.
+            polarity (bool, optional): image includes positive and negative
+                intensities, otherwise it is assumed to be a magnitude image
+        """
+        self.tr = tr
+        self.ti = ti
+        self.pars_0 = pars_0
+
+    def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        return ('s0', False), ('t1', False), ('s_opt', True)
+
+    def proc(self, s):
+        """Estimate T1 and s0. Overrides superclass method.
+        Uses the 3-parameter model: s = a + b exp(-TI/T1)
+
+        Args:
+            s (ndarray): 1D array containing the signals
+
+        Returns:
+            tuple: s0, t1, s_opt
+                a (float): estimated "a" parameter
+                b (float): estimated "b" parameter
+                t1 (float): estimated T1 (s)
+                s_opt (ndarray): fitted signal intensities
+        """
+        # if s_opts not given, generate starting estimates
+        if self.pars_0 is None:
+            s0_init = np.max(np.abs(s))  # order-of-magnitude estimate for s0
+            t1_init = self.ti[np.argmin(np.abs(s))]/np.log(2)  # ~null signal
+        else:
+            s0_init, t1_init  = self.pars_0
+
+        a_init = s0_init * (1 + np.exp(-self.tr/t1_init))
+        b_init = -2 * s0_init
+        x_0 = np.array((a_init, b_init, t1_init))
+        x_scale = (s0_init, s0_init, 1.0)
+        bounds = 0 #  TODO
+
+
+        # optimise using 3 parameter model
+        result = least_squares_global(self.__residuals, self.x_0_all,
+                                      args=(s,), method='trf',
+                                      bounds=bounds,
+                                      x_scale=x_scale)
+        if result.success is False:
+            raise ArithmeticError(
+                f'Unable to calculate T1'
+                f': {result.message}')
+
+        a_opt, b_opt, t1_opt = result.x
+        s_opt = self.__3par_model()
+
+        return a_opt, b_opt, t1_opt, s_opt
+
+    def __residuals(self, x, s):  # TODO
+        pass
+
+    def __3par_model(self):  # TODO
+        return 0
 
 
 def spgr_signal(s0, t1, tr, fa):

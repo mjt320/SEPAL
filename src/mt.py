@@ -89,6 +89,10 @@ class MTSat(Fitter):
 
     def proc(self, s):
         """Calculate MTSat, MTR and T1. Overrides superclass method.
+        Uses equations from:
+            Helms et al., Magnetic Resonance in Medicine 60:1396–1407 (2008)
+            https://doi.org/10.1002/mrm.21732
+            and erratum https://doi.org/10.1002/mrm.22607
 
         Args:
             s (ndarray): 1D np array containing the MT, PD and T1
