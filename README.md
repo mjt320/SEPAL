@@ -18,10 +18,11 @@ Created 28 September 2020
 - AIFs: including patient-specific (measured), Parker, bi-exponential Parker
 - Fitting free AIF time delay parameter
 - Relaxivity models: linear
-- Signal models: spoiled gradient echo
+- Signal models: spoiled gradient echo, inversion-recovery spin-echo
 - Water exchange models: FXL, NXL, NXL_be
-- T1 fitting using variable flip angle method, IR-SPGR and DESPOT1-HIFI
+- T1 fitting using variable flip angle method, IR-SPGR, DESPOT1-HIFI and inversion recovery 
 - T2(*) fitting for multi-TE acquisitions
+- MTR and MTSat calculation
 
 ### Not yet implemented/limitations:
 - Additional pharmacokinetic models (add by inheriting from PkModel class)
@@ -30,7 +31,4 @@ Created 28 September 2020
 - Additional signal models (add by inheriting from SignalModel class)
 - R2/R2* effects not included in fitting of enhancement curves (but is included for enhancement-to-concentration conversion)
 - Compartment-specific relaxivity parameters/models
-- Fitting free water exchange parameters
-
-### TODO:
-- inversion recovery T1 measurment
+- Fitting water exchange parameters

@@ -10,6 +10,7 @@ Classes:
     VFALinear
     VFANonLinear
     HIFI
+    IRSE
 
 Functions:
     spgr_signal: get SPGR signal
@@ -19,6 +20,7 @@ Functions:
 import numpy as np
 from scipy.optimize import least_squares
 from fitting import Fitter
+from utils.utilities import least_squares_global
 
 
 class VFA2Points(Fitter):
@@ -311,6 +313,102 @@ class HIFI(Fitter):
         s[self.is_spgr] = spgr_signal(s0, t1, self.esp[self.is_spgr],
                                       k_fa * self.b[self.is_spgr])
         return s
+
+
+class IRSE(Fitter):
+    """T1 estimation from inversion-recovery spin-echo.
+
+    Subclass of Fitter.
+    For fitting a series of acquisitions with the same TR/TE and different TI.
+    """
+
+    MIN_T1 = 0.01  # minimum allowable T1 (needed to avoid exceptions)
+
+    def __init__(self, tr, ti, pars_0=None, signed_signal=False, n_tries=1):
+        """
+
+        Args:
+            tr (float): TR for all acquisition (s)
+            ti (ndarray): TI for each acquisition (s)
+            pars_0 (list, optional): 2-element list of initial parameters s0 and
+                T1. If None (default), initial s0 is estimated as the maximum
+                absolute signal and initial T1 is estimated from the minimum
+                absolute signal.
+            signed_signal (bool, optional): image includes positive and negative
+                intensities, otherwise it is assumed to be a magnitude image.
+            n_tries (int, optional): if >1, repeats optimisation with
+                randomised starting values (uniform random values between 5%
+                and 2x initial estimates). Defaults to 1.
+        """
+        self.tr = tr
+        self.ti = ti
+        self.pars_0 = pars_0
+        self.signed_signal = signed_signal
+        self.n_tries = n_tries
+
+    def output_info(self):
+        """Get output info. Overrides superclass method.
+        """
+        return ('a', False), ('b', False), ('t1', False), ('s_opt', True)
+
+    def proc(self, s):
+        """Estimate T1 and s0. Overrides superclass method.
+        Uses the 3-parameter model: s = a + b exp(-TI/T1)
+
+        Args:
+            s (ndarray): 1D array containing the signals
+
+        Returns:
+            tuple: s0, t1, s_opt
+                a (float): estimated "a" parameter
+                b (float): estimated "b" parameter
+                t1 (float): estimated T1 (s)
+                s_opt (ndarray): fitted signal intensities
+        """
+        # if s_opts not given, generate starting estimates for s0, T1, a and b
+        if self.pars_0 is None:
+            s0_init = np.max(np.abs(s))  # order-of-magnitude estimate for s0
+            t1_init = self.ti[np.argmin(np.abs(s))]/np.log(2)  # ~null signal
+        else:
+            s0_init, t1_init = self.pars_0
+        t1_init = max(type(self).MIN_T1, t1_init)
+        a_init = s0_init * (1 + np.exp(-self.tr/t1_init))
+        b_init = -2 * s0_init
+        x_0 = [np.array((a_init, b_init, t1_init))]
+        # if >1 tries, generate additional randomised starting parameters
+        for n in range(1, self.n_tries):
+            s0_init_rnd = np.random.uniform(0.05, 2) * s0_init
+            t1_init_rnd = np.random.uniform(0.05, 2) * t1_init
+            t1_init_rnd = max(type(self).MIN_T1, t1_init_rnd)
+            a_init_rnd = s0_init_rnd * (1 + np.exp(-self.tr/t1_init_rnd))
+            b_init_rnd = -2 * s0_init_rnd
+            x_0_init_rnd = [np.array((a_init_rnd, b_init_rnd, t1_init_rnd))]
+            x_0 = x_0 + x_0_init_rnd
+
+
+        # optimise using the 3-parameter model
+        x_scale = (np.abs(a_init), np.abs(b_init), 1.0)
+        bounds = ((-np.inf, -np.inf, type(self).MIN_T1), (np.inf, np.inf, np.inf))
+        result = least_squares_global(self.__residuals, x_0,
+                                      args=(s,), method='trf',
+                                      bounds=bounds,
+                                      x_scale=x_scale)
+        if result.success is False:
+            raise ArithmeticError(
+                f'Unable to calculate T1'
+                f': {result.message}')
+
+        a_opt, b_opt, t1_opt = result.x
+        s_opt = self.__signal(result.x)
+
+        return a_opt, b_opt, t1_opt, s_opt
+
+    def __residuals(self, x, s):
+        return s - self.__signal(x)
+
+    def __signal(self, x):
+        signal = x[0] + x[1] * np.exp(-self.ti / x[2])
+        return signal if self.signed_signal else np.abs(signal)
 
 
 def spgr_signal(s0, t1, tr, fa):
