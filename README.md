@@ -1,13 +1,18 @@
-# South Edinburgh Perfusion Analysis Library (SEPAL)
+# South Edinburgh Perfusion+ Analysis Library (SEPAL)
 
 **Please note: This library is also hosted in the [OSIPI DCE-DSC-MRI_CodeCollection repository](https://github.com/OSIPI/DCE-DSC-MRI_CodeCollection), where unit tests and perfusion code by other authors can also be found.**
 
-Python library for simulating and fitting DCE-MRI data. It permits arbitrary combinations of pulse sequence, pharmacokinetic model, water exchange model, etc. The code is a work-in-progress, has not been extensively tested and is not recommended or approved for clinical use.
+Python library for simulating and fitting DCE- and other quantitative MRI data. It permits arbitrary combinations of pulse sequence, pharmacokinetic model, water exchange model, etc. The code is a work-in-progress, has not been extensively tested and is not recommended or approved for clinical use.
 
 Created 28 September 2020  
 @authors: Michael Thrippleton  
 @email: m.j.thrippleton@ed.ac.uk  
 @institution: University of Edinburgh, UK
+
+### Installation:
+
+### Use:
+Most functionality is demonstrated in Jupyter notebook format in ./demo 
 
 ### Functionality:
 - Enhancement-to-concentration conversion (assuming fast water exchange)
