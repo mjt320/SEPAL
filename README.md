@@ -10,6 +10,7 @@ Created 28 September 2020
 @institution: University of Edinburgh, UK
 
 ### Installation:
+pip install sepal
 
 ### Use:
 Most functionality is demonstrated in Jupyter notebook format in ./demo 
