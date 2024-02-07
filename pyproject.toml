@@ -1,0 +1,29 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sepal"
+version = "1.0.0"
+description = "Quantitative MRI processing"
+readme = "README.md"
+authors = [{ name = "Michael Thrippleton", email = "mjt320@googlemail.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["MRI", "perfusion", "quantitative"]
+dependencies = [
+    "numpy",
+    "scipy",
+    "nibabel",
+    "joblib",
+]
+requires-python = ">=3.7"
+
+[project.urls]
+Homepage = "https://github.com/mjt320/SEPAL"

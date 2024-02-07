@@ -1,0 +1,4 @@
+# MANIFEST.in
+
+recursive-include demo *
+prune demo/.ipynb_checkpoints

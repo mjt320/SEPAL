@@ -19,8 +19,8 @@ Functions:
 
 import numpy as np
 from scipy.optimize import least_squares
-from fitting import Fitter
-from utils.utilities import least_squares_global
+from sepal.fitting import Fitter
+from sepal.utils.utilities import least_squares_global
 
 
 class VFA2Points(Fitter):

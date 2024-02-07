@@ -12,8 +12,7 @@ Classes:
 """
 
 import numpy as np
-from scipy.optimize import least_squares
-from fitting import Fitter
+from sepal.fitting import Fitter
 
 
 class MTR(Fitter):
