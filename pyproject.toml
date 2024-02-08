@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sepal"
-version = "1.0.3"
+version = "1.0.4"
 description = "Quantitative MRI processing"
 readme = "README.md"
 authors = [{ name = "Michael Thrippleton", email = "mjt320@googlemail.com" }]
