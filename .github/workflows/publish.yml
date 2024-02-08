@@ -87,6 +87,7 @@ jobs:
       Upload to GitHub Release
     needs:
     - build
+    - check_version
     #- publish-to-pypi
     runs-on: ubuntu-latest
     if: needs.check_version.outputs.output=='true'
