@@ -9,7 +9,7 @@ on:
 
 jobs:
   check_version:  
-    name: Check whether version has been updated cf. pypi
+    name: Check version
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +27,8 @@ jobs:
           echo "Public version: ${{ steps.versioncheck.outputs.public_version }}"   # e.g., 0.1.0
     
   build:
+    needs:
+    - check_version
     name: Build distribution 📦
     runs-on: ubuntu-latest
     if: needs.check_version.versioncheck.outputs.local_version_is_higher
