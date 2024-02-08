@@ -3,7 +3,7 @@ name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
 on:
   push:
     branches:
-      - publish_to_pypi
+      - main #publish_to_pypi
     #tags:
     #  - "*"
 
@@ -85,6 +85,7 @@ jobs:
     needs:
     - publish-to-pypi
     runs-on: ubuntu-latest
+    if: needs.check_version.outputs.output=='true'
 
     permissions:
       contents: write  # IMPORTANT: mandatory for making GitHub Releases
@@ -120,6 +121,7 @@ jobs:
     needs:
     - build
     runs-on: ubuntu-latest
+    if: needs.check_version.outputs.output=='true'
 
     environment:
       name: testpypi
