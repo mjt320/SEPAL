@@ -31,12 +31,12 @@ jobs:
     needs:
     - check_version
     runs-on: ubuntu-latest
-    #if: needs.check_version.versioncheck.outputs.local_version_is_higher
+    #if: needs.check_version.outputs.local_version_is_higher
 
     steps:
     - name: echo version
       run: |
-          echo "IF CHECK: ${{needs.check_version.versioncheck.outputs.local_version_is_higher}}"
+          echo "IF CHECK: ${{needs.check_version.outputs.local_version_is_higher}}"
     - uses: actions/checkout@v4  
     - name: Set up Python
       uses: actions/setup-python@v4
