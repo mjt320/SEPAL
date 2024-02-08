@@ -40,6 +40,7 @@ jobs:
     - name: echo version
       run: |
           echo "Output from previous job: ${{needs.check_version.outputs.output}}"
+          echo "Local version: ${{needs.check_version.outputs.output}}"
     - uses: actions/checkout@v4  
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -105,7 +106,7 @@ jobs:
         GITHUB_TOKEN: ${{ github.token }}
       run: >-
         gh release create
-        '${{ needs.check_version.outputs.output }}'
+        'v${{ needs.check_version.outputs.output }}'
         --repo '${{ github.repository }}'
         --notes ""
     - name: Upload artifact signatures to GitHub Release
