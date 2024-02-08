@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       output: ${{ steps.versioncheck.outputs.local_version_is_higher }}
+      localversion: ${{ steps.versioncheck.outputs.local_version }}
 
     steps:
     - uses: actions/checkout@v3
@@ -62,6 +63,7 @@ jobs:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
     if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    #if: needs.check_version.outputs.output=='true'
     needs:
     - build
     runs-on: ubuntu-latest
@@ -82,8 +84,8 @@ jobs:
   github-release:
     name: >-
       Upload to GitHub Release
-    needs:
-    - publish-to-pypi
+    #needs:
+    #- publish-to-pypi
     runs-on: ubuntu-latest
     if: needs.check_version.outputs.output=='true'
 
@@ -102,7 +104,7 @@ jobs:
         GITHUB_TOKEN: ${{ github.token }}
       run: >-
         gh release create
-        '${{ github.ref_name }}'
+        '${{ needs.check_version.outputs.output }}'
         --repo '${{ github.repository }}'
         --notes ""
     - name: Upload artifact signatures to GitHub Release
