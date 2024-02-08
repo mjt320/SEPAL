@@ -33,7 +33,7 @@ jobs:
     needs:
     - check_version
     runs-on: ubuntu-latest
-    if: needs.check_version.outputs.local_version_is_higher=='true'
+    if: needs.check_version.outputs.output=='true'
 
     steps:
     - name: echo version
