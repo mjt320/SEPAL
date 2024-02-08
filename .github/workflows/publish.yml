@@ -1,0 +1,147 @@
+name: Publish distribution PyPI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check_version:  
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      output: ${{ steps.versioncheck.outputs.local_version_is_higher }}
+      localversion: ${{ steps.versioncheck.outputs.local_version }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: compare local vs. pypi version
+      uses: maybe-hello-world/pyproject-check-version@v4
+      id: versioncheck
+      with:
+        pyproject-path: "./pyproject.toml"    # default value
+
+    - name: check output
+      run: |
+          echo "Output: ${{ steps.versioncheck.outputs.local_version_is_higher }}"  # 'true' or 'false
+          echo "Local version: ${{ steps.versioncheck.outputs.local_version }}"     # e.g., 0.1.1
+          echo "Public version: ${{ steps.versioncheck.outputs.public_version }}"   # e.g., 0.1.0
+    
+  build:
+    name: Build distribution
+    needs:
+    - check_version
+    runs-on: ubuntu-latest
+    if: needs.check_version.outputs.output=='true'
+
+    steps:
+    - name: echo version
+      run: |
+          echo "Output from previous job: ${{needs.check_version.outputs.output}}"
+          echo "Local version: ${{needs.check_version.outputs.localversion}}"
+    - uses: actions/checkout@v4  
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.x"
+    - name: Install pypa/build
+      run: >-
+        python3 -m
+        pip install
+        build
+        --user
+    - name: Build a binary wheel and a source tarball
+      run: python3 -m build
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+
+  publish-to-pypi:
+    name: >-
+      Publish Python distribution to PyPI
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    if: needs.check_version.outputs.output=='true'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sepal  # Replace <package-name> with your PyPI project name
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: >-
+      Upload to GitHub Release
+    needs:
+    - build
+    - check_version
+    #- publish-to-pypi
+    runs-on: ubuntu-latest
+    if: needs.check_version.outputs.output=='true'
+
+    permissions:
+      contents: write  # IMPORTANT: mandatory for making GitHub Releases
+      id-token: write  # IMPORTANT: mandatory for sigstore
+
+    steps:
+    - name: Check version
+      run: |
+        echo "Local version: ${{needs.check_version.outputs.localversion}}"
+    - name: Download all the dists
+      uses: actions/download-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Create GitHub Release
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: >-
+        gh release create
+        v${{ needs.check_version.outputs.localversion }}
+        --repo '${{ github.repository }}'
+        --notes ""
+    - name: Upload artifact signatures to GitHub Release
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      # Upload to GitHub Release using the `gh` CLI.
+      # `dist/` contains the built packages, and the
+      # sigstore-produced signatures and certificates.
+      run: >-
+        gh release upload
+        v'${{ needs.check_version.outputs.localversion }}' dist/**
+        --repo '${{ github.repository }}'
+
+  publish-to-testpypi:
+    name: Publish Python 🐍 distribution 📦 to TestPyPI
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    if: needs.check_version.outputs.output=='true'
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/sepal
+
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution 📦 to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
