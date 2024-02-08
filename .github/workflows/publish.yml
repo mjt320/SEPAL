@@ -105,8 +105,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
       run: >-
+        echo "Local version: ${{needs.check_version.outputs.localversion}}"
         gh release create
-        v'${{ needs.check_version.outputs.localversion }}'
+        v${{ needs.check_version.outputs.localversion }}
         --repo '${{ github.repository }}'
         --notes ""
     - name: Upload artifact signatures to GitHub Release
