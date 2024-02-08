@@ -1,11 +1,9 @@
-name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
+name: Publish distribution PyPI
 
 on:
   push:
     branches:
-      - publish_to_pypi
-    #tags:
-    #  - "*"
+      - main
 
 jobs:
   check_version:  
@@ -62,12 +60,11 @@ jobs:
 
   publish-to-pypi:
     name: >-
-      Publish Python 🐍 distribution 📦 to PyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
-    #if: needs.check_version.outputs.output=='true'
+      Publish Python distribution to PyPI
     needs:
     - build
     runs-on: ubuntu-latest
+    if: needs.check_version.outputs.output=='true'
     environment:
       name: pypi
       url: https://pypi.org/p/sepal  # Replace <package-name> with your PyPI project name
@@ -79,7 +76,7 @@ jobs:
       with:
         name: python-package-distributions
         path: dist/
-    - name: Publish distribution 📦 to PyPI
+    - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
