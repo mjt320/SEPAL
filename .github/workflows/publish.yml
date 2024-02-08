@@ -11,6 +11,8 @@ jobs:
   check_version:  
     name: Check version
     runs-on: ubuntu-latest
+    outputs:
+      output: ${{ steps.versioncheck.outputs.local_version_is_higher }}
 
     steps:
     - uses: actions/checkout@v3
@@ -36,7 +38,7 @@ jobs:
     steps:
     - name: echo version
       run: |
-          echo "Output from previous job: ${{needs.check_version.outputs.local_version_is_higher}}"
+          echo "Output from previous job: ${{needs.check_version.outputs.output}}"
     - uses: actions/checkout@v4  
     - name: Set up Python
       uses: actions/setup-python@v4
