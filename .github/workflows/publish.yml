@@ -40,7 +40,7 @@ jobs:
     - name: echo version
       run: |
           echo "Output from previous job: ${{needs.check_version.outputs.output}}"
-          echo "Local version: ${{needs.check_version.outputs.output}}"
+          echo "Local version: ${{needs.check_version.outputs.localversion}}"
     - uses: actions/checkout@v4  
     - name: Set up Python
       uses: actions/setup-python@v4
