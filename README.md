@@ -8,6 +8,7 @@ Created 28 September 2020
 @authors: Michael Thrippleton  
 @email: m.j.thrippleton@ed.ac.uk  
 @institution: University of Edinburgh, UK
+---
 
 ### Installation:
 pip install sepal
@@ -38,3 +39,7 @@ Most functionality is demonstrated in Jupyter notebook format in ./demo
 - R2/R2* effects not included in fitting of enhancement curves (but is included for enhancement-to-concentration conversion)
 - Compartment-specific relaxivity parameters/models
 - Fitting water exchange parameters
+---
+
+### Updates
+Release 1.0.1 - Changed AIF interpolation method to avoid oscillations. Added demo notebook on interpolation. 
