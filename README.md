@@ -42,4 +42,5 @@ Most functionality is demonstrated in Jupyter notebook format in ./demo
 ---
 
 ### Updates
+Release 1.0.2 - Changed AIF interpolation method to linear to further reduce oscillations.
 Release 1.0.1 - Changed AIF interpolation method to avoid oscillations. Added demo notebook on interpolation. 
