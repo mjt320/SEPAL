@@ -17,7 +17,6 @@ Classes: AIF and derived subclasses:
 from abc import ABC, abstractmethod
 
 import numpy as np
-from scipy.interpolate import interp1d, Akima1DInterpolator
 
 
 class AIF(ABC):
@@ -71,19 +70,11 @@ class PatientSpecific(AIF):
         """
         self.t_data = t_data
         self.c_ap_data = c_ap_data
-        self.c_ap_func = Akima1DInterpolator(t_data, c_ap_data)
 
     def c_ap(self, t):
         """Get AIF plasma concentration(t). Overrides superclass method."""
         #  calculate concentration(t) using interpolation function
-        c_ap = self.c_ap_func(t)
-        #  replace values outside time range with first/last values
-        idx_before = t < min(self.t_data)
-        idx_after = t > max(self.t_data)
-        c_ap_before = self.c_ap_data[0]
-        c_ap_after = self.c_ap_data[-1]
-        c_ap[idx_before] = c_ap_before
-        c_ap[idx_after] = c_ap_after
+        c_ap = np.interp(t, self.t_data, self.c_ap_data)
         return c_ap
 
 
