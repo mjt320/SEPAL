@@ -112,9 +112,9 @@ class EnhToConc(Fitter):
         Returns:
             ndarray: 1D array of tissue concentrations (mM)
         """
-        if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
+        if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa) or k_fa <= 0 or t10 <= 0:
             raise ValueError(
-                f'Unable to calculate concentration: nan arguments received.')
+                f'Unable to calculate concentration: invalid t10/k_fa/enh values received.')
         e_samples = conc_to_enh(self.C_samples, t10, k_fa, self.c_to_r_model,
                                 self.signal_model)
         C_st = self.C_samples[np.concatenate((argrelextrema(e_samples,
@@ -168,9 +168,9 @@ class EnhToConcSPGR(Fitter):
         Returns:
             ndarray: 1D array of tissue concentrations (mM)
         """
-        if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa):
+        if any(np.isnan(enh)) or np.isnan(t10) or np.isnan(k_fa) or t10 <= 0 or k_fa <= 0:
             raise ValueError(
-                f'Unable to calculate concentration: nan arguments received.')
+                f'Unable to calculate concentration: invalid enh/t10/k_fa values received.')
         cos_fa_true = np.cos(k_fa * self.fa)
         exp_r10_tr = np.exp(self.tr/t10)
         C_t = -np.log((exp_r10_tr * (enh-100*cos_fa_true-enh*exp_r10_tr+100)) /
@@ -514,7 +514,7 @@ def pkp_to_enh(pk_pars, hct, k_fa, t10_tissue, t10_blood, pk_model,
         Model to predict one or more exponential relaxation components given
         the relaxation rates for each compartment and water exchange behaviour.
     signal_model : SignalModel
-        Model descriibing the relaxation-signal relationship.
+        Model describing the relaxation-signal relationship.
 
     Returns
     -------

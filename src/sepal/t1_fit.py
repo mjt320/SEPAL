@@ -58,9 +58,9 @@ class VFA2Points(Fitter):
                 t1 (float): T1 (s)
 
         """
-        if any(np.isnan(s)):
+        if any(np.isnan(s)) or np.isnan(k_fa) or k_fa <= 0:
             raise ValueError(
-                f'Unable to calculate T1: nan signal values received.')
+                f'Unable to calculate T1: nan signal or nan/<=0 k_fa values received.')
         with np.errstate(divide='ignore', invalid='ignore'):
             fa_true = k_fa * self.fa_rad
             sr = s[0] / s[1]
@@ -112,9 +112,9 @@ class VFALinear(Fitter):
                 t1 (float): T1 (s)
 
         """
-        if any(np.isnan(s)) or np.isnan(k_fa):
+        if any(np.isnan(s)) or np.isnan(k_fa) or k_fa <= 0:
             raise ArithmeticError(
-                f'Unable to calculate T1: nan signal or k_fa values received.')
+                f'Unable to calculate T1: nan signal or nan/<=0 k_fa values received.')
         fa_true = k_fa * self.fa_rad
         y = s / np.sin(fa_true)
         x = s / np.tan(fa_true)
@@ -165,9 +165,9 @@ class VFANonLinear(Fitter):
                 t1 (float): T1 (s)
 
         """
-        if any(np.isnan(s)) or np.isnan(k_fa):
+        if any(np.isnan(s)) or np.isnan(k_fa) or k_fa <= 0:
             raise ValueError(
-                f'Unable to calculate T1: nan signal or k_fa values received.')
+                f'Unable to calculate T1: nan signal or nan/<=0 k_fa values received.')
         # use linear fit to obtain initial guess, otherwise start with T1=1
         try:
             x0 = np.array(self.linear_fitter.proc(s, k_fa=k_fa))

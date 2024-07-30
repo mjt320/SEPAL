@@ -82,7 +82,7 @@ class Fitter(ABC):
                 contain 1 or 0 only. 1 indicates voxels to be processed.
                 Defaults to None (process all voxels).
             threshold (float): Voxel is processed if max input value in
-                series (e.g. flip angle or time series) is >= threshold.
+                series (e.g. flip angle series or time series) is >= threshold.
                 Defaults to -np.inf
             dir (str): Directory for output images. If None, no output
                 images are written. Defaults to None.
