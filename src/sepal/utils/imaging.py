@@ -76,8 +76,8 @@ def roi_measure(image, mask_image):
         mask_image (str, ndarray): Mask image.
 
     Returns:
-        dict{'mean': mean, 'median': median, 'sd': sd}
-            mean, median and sd (float, ndarray): statistics for masked
+        dict{'mean': mean, 'median': median, 'sd': sd, 'min': min, 'max': max, 'pct25': pct25, 'pct75': pct75}
+            mean, median, sd, min, max, 25th percentile and 75th percentile (float, ndarray): statistics for masked
             voxels. For input data with one more dimension than the mask
             image (e.g. a time series), a 1D array of floats is returned.
     """
@@ -95,9 +95,16 @@ def roi_measure(image, mask_image):
 
     # measure statistics for masked voxels
     masked_voxels = data_2d[mask_1d == 1, :]
-    stats = [(np.nanmean(m_d), np.nanmedian(m_d), np.nanstd(m_d))
+    stats = [(np.nanmean(m_d), np.nanmedian(m_d), np.nanstd(m_d), np.nanmin(m_d), np.nanmax(m_d),
+              np.percentile(m_d, 25), np.percentile(m_d, 75))
              for m_d in masked_voxels.transpose()]
-    mean, median, sd = zip(*stats)
+    mean, median, sd, mini, maxi, pct25, pct75 = zip(*stats)
 
-    return {'mean': np.squeeze(mean), 'median': np.squeeze(median),
-            'sd': np.squeeze(sd)}
+    return {'mean': np.squeeze(mean),
+            'median': np.squeeze(median),
+            'sd': np.squeeze(sd),
+            'min': np.squeeze(mini),
+            'max': np.squeeze(maxi),
+            'pct25': np.squeeze(pct25),
+            'pct75': np.squeeze(pct75)
+            }
