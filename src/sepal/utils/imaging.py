@@ -96,7 +96,7 @@ def roi_measure(image, mask_image):
     # measure statistics for masked voxels
     masked_voxels = data_2d[mask_1d == 1, :]
     stats = [(np.nanmean(m_d), np.nanmedian(m_d), np.nanstd(m_d), np.nanmin(m_d), np.nanmax(m_d),
-              np.percentile(m_d, 25), np.percentile(m_d, 75))
+              np.nanpercentile(m_d, 25), np.nanpercentile(m_d, 75))
              for m_d in masked_voxels.transpose()]
     mean, median, sd, mini, maxi, pct25, pct75 = zip(*stats)
 

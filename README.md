@@ -42,6 +42,7 @@ Most functionality is demonstrated in Jupyter notebook format in ./demo
 ---
 
 ### Updates
+Release 1.1.1 - *roi_measure* exclude NaNs when calculating percentiles
 Release 1.1.0 - *roi_measure* modified to generate more ROI statistics
 Release 1.0.3 - Add exception handling for some zero/negative inputs.  
 Release 1.0.2 - Changed AIF interpolation method to linear to further reduce oscillations.  
