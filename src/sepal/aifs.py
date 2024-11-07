@@ -12,11 +12,13 @@ Classes: AIF and derived subclasses:
     ManningFast
     ManningSlow
     Heye
+    Georgiou
 """
-
+import math
 from abc import ABC, abstractmethod
 
 import numpy as np
+from scipy.special import gamma
 
 
 class AIF(ABC):
@@ -222,3 +224,48 @@ class Heye(ParkerLike):
         """
         super().__init__(hct, alpha=3.1671, alpha2=0.5628, beta=1.0165,
                          beta2=0.0266, scale_factor=1, t_start=t_start)
+
+
+class Georgiou(AIF):
+    """Georgiou AIF subclass.
+
+    Generate AIF concentrations using a mathematical function that is based
+    on the functional representative AIF published by Georgiou et al. in https://doi.org/10.1002/mrm.27524
+    """
+
+    def __init__(self, hct, A1=0.37, A2=0.33, A3=10.06, m1=0.11, m2=1.17, m3=16.02, alpha=5.26, beta=0.032, tau=0.129,
+                 t_start=0):
+        """
+
+        Args:
+            hct (float): Arterial haematocrit
+            A1, A2, A3, m1, m2, m3, alpha, beta, tau (float): AIF function parameters. Default to values given in table
+                3 of the original publication.
+            t_start (float): Start time (s). The AIF function is time-shifted by
+                this delay. Defaults to 0.
+        """
+        self.hct = hct
+        self.A1, self.A2, self.A3 = A1, A2, A3
+        self.m1, self.m2, self.m3 = m1, m2, m3
+        self.alpha, self.beta, self.tau = alpha, beta, tau
+        self.t_start = t_start
+
+    def c_ap(self, t):
+        """Get AIF plasma concentration(t). Overrides superclass method."""
+        t_mins = np.float64((t - self.t_start) / 60.)
+        c_ab = np.empty(t_mins.shape)
+
+        for idx, this_time in enumerate(t_mins):
+            n = int(this_time/self.tau)
+            c_ab_1 = (self.A1*np.exp(-self.m1*this_time) + self.A2*np.exp(-self.m2*this_time) +
+                      self.A3*np.exp(-self.m3*this_time))
+            c_ab_2 = 3.0365598541465757 if this_time >= 4.2 else sum(  # avoid numerical overflow at large t
+                [gamma_variate((j+1)*self.alpha + j, self.beta, this_time-j*self.tau) for j in range(n+1)])
+            c_ab[idx] = c_ab_1 * c_ab_2
+        c_ap = c_ab / (1 - self.hct)
+        return c_ap
+
+
+def gamma_variate(alpha, beta, t):
+    gv = (t ** alpha * np.exp(-t / beta)) / (beta ** (alpha + 1) * gamma(alpha + 1)) if t >= 0 else 0.
+    return gv

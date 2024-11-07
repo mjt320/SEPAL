@@ -22,7 +22,7 @@ Most functionality is demonstrated in Jupyter notebook format in ./demo
 - Fit signal enhancement using pharmacokinetic model
 - Pharmacokinetic models: steady-state, Patlak, extended Tofts, Tofts, 2CXM, 2CUM
 - Patlak fitting with multiple linear regression
-- AIFs: including patient-specific (measured), Parker, bi-exponential Parker
+- AIFs: including patient-specific (measured), Parker, bi-exponential Parker, Georgiou
 - Fitting free AIF time delay parameter
 - Relaxivity models: linear
 - Signal models: spoiled gradient echo, inversion-recovery spin-echo
@@ -42,8 +42,10 @@ Most functionality is demonstrated in Jupyter notebook format in ./demo
 ---
 
 ### Updates
+Release 1.2.1 - "Georgiou" AIF added to *aifs* module
 Release 1.1.1 - *roi_measure* exclude NaNs when calculating percentiles
 Release 1.1.0 - *roi_measure* modified to generate more ROI statistics
 Release 1.0.3 - Add exception handling for some zero/negative inputs.  
 Release 1.0.2 - Changed AIF interpolation method to linear to further reduce oscillations.  
-Release 1.0.1 - Changed AIF interpolation method to avoid oscillations. Added demo notebook on interpolation.  
+Release 1.0.1 - Changed AIF interpolation method to avoid oscillations. Added demo notebook on interpolation.
+
