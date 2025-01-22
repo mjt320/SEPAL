@@ -42,6 +42,7 @@ Most functionality is demonstrated in Jupyter notebook format in ./demo
 ---
 
 ### Updates
+Release 1.3.0 - Checking ve+vp<=1 can now be disabled
 Release 1.2.1 - "Georgiou" AIF added to *aifs* module
 Release 1.1.1 - *roi_measure* exclude NaNs when calculating percentiles
 Release 1.1.0 - *roi_measure* modified to generate more ROI statistics
