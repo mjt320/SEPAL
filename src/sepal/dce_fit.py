@@ -185,7 +185,7 @@ class ConcToPKP(Fitter):
 
     Subclass of Fitter.
     """
-    def __init__(self, pk_model, pk_pars_0=None, weights=None):
+    def __init__(self, pk_model, pk_pars_0=None, weights=None, check_ve_vp_sum=True):
         """
         Args:
             pk_model (PkModel): Pharmacokinetic model used to predict tracer
@@ -200,6 +200,8 @@ class ConcToPKP(Fitter):
                 for sum-of-squares calculation. Can be used to "exclude" data
                 points from optimisation. Defaults to equal weighting for all
                 points.
+            check_ve_vp_sum (bool, optional): Whether to check if sum of ve and vp >=1.
+                If condition is met, outputs will be set to NaN. Defaults to True.
         """
         self.pk_model = pk_model
         if pk_pars_0 is None:
@@ -210,6 +212,7 @@ class ConcToPKP(Fitter):
             self.weights = np.ones(pk_model.n)
         else:
             self.weights = weights
+        self.check_ve_vp_sum = check_ve_vp_sum
         # Convert initial pars from list of dicts to list of arrays
         self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
 
@@ -244,7 +247,8 @@ class ConcToPKP(Fitter):
                 f'Unable to calculate pharmacokinetic parameters'
                 f': {result.message}')
         pk_pars_opt = self.pk_model.pkp_dict(result.x)
-        check_ve_vp_sum(pk_pars_opt)
+        if self.check_ve_vp_sum:
+            check_ve_vp_sum(pk_pars_opt)
         Ct_fit, _C_cp, _C_e = self.pk_model.conc(*result.x)
         Ct_fit[self.weights == 0] = np.nan
         return tuple(result.x) + (Ct_fit,)
@@ -269,7 +273,7 @@ class EnhToPKP(Fitter):
     R2 and R2* effects neglected.
     """
     def __init__(self, hct, pk_model, t10_blood, c_to_r_model, water_ex_model,
-                 signal_model, pk_pars_0=None, weights=None):
+                 signal_model, pk_pars_0=None, weights=None, check_ve_vp_sum=True):
         """
         Args:
             hct (float): Capillary haematocrit
@@ -295,6 +299,8 @@ class EnhToPKP(Fitter):
                 sum-of-squares calculation. Can be used to "exclude" data
                 points from optimisation. Defaults to equal weighting for all
                 points.
+            check_ve_vp_sum (bool, optional): Whether to check if sum of ve and vp >=1.
+                If condition is met, outputs will be set to NaN. Defaults to True.
         """
         self.hct = hct
         self.pk_model = pk_model
@@ -310,6 +316,7 @@ class EnhToPKP(Fitter):
             self.weights = np.ones(pk_model.n)
         else:
             self.weights = weights
+        self.check_ve_vp_sum = check_ve_vp_sum
         # Convert initial pars from list of dicts to list of arrays
         self.x_0_all = [pk_model.pkp_array(pars) for pars in self.pk_pars_0]
 
@@ -349,7 +356,8 @@ class EnhToPKP(Fitter):
                 f'Unable to calculate pharmacokinetic parameters'
                 f': {result.message}')
         pk_pars_opt = self.pk_model.pkp_dict(result.x)
-        check_ve_vp_sum(pk_pars_opt)
+        if self.check_ve_vp_sum:
+            check_ve_vp_sum(pk_pars_opt)
         enh_fit = pkp_to_enh(pk_pars_opt, self.hct, k_fa, t10_tissue,
                              self.t10_blood, self.pk_model, self.c_to_r_model,
                              self.water_ex_model, self.signal_model)
