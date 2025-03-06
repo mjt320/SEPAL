@@ -42,10 +42,11 @@ Most functionality is demonstrated in Jupyter notebook format in ./demo
 ---
 
 ### Updates
-Release 1.3.0 - Checking ve+vp<=1 can now be disabled
-Release 1.2.1 - "Georgiou" AIF added to *aifs* module
-Release 1.1.1 - *roi_measure* exclude NaNs when calculating percentiles
-Release 1.1.0 - *roi_measure* modified to generate more ROI statistics
+Release 1.3.2 - further comments added to dce_fit demo notebook  
+Release 1.3.1 - Checking ve+vp<=1 can now be disabled  
+Release 1.2.1 - "Georgiou" AIF added to *aifs* module  
+Release 1.1.1 - *roi_measure* exclude NaNs when calculating percentiles  
+Release 1.1.0 - *roi_measure* modified to generate more ROI statistics  
 Release 1.0.3 - Add exception handling for some zero/negative inputs.  
 Release 1.0.2 - Changed AIF interpolation method to linear to further reduce oscillations.  
 Release 1.0.1 - Changed AIF interpolation method to avoid oscillations. Added demo notebook on interpolation.
